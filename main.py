@@ -369,25 +369,44 @@ async def setup_ticket(interaction: discord.Interaction):
 # CONFIGURACIÓN DE RADIO 24/7
 # =========================================
 VOICE_CHANNEL_ID = 1386099865926504568
-RADIO_URL = "http://stream.radioparadise.com/mp3-128"  # Link estable de radio
+RADIO_URL = "http://stream.radioparadise.com/mp3-128"  # Radio estable MP3
 
 async def conectar_radio(guild, url):
-    vc = guild.voice_client
-    if not vc:
-        canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
-        if not canal:
-            print("❌ No se encontró el canal de voz")
-            return
-        vc = await canal.connect()
-    
-    if not vc.is_playing():
-        vc.play(
-            discord.FFmpegPCMAudio(
-                url,
-                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-            )
-        )
-        print("🎶 Radio 24/7 activa")
+    try:
+        vc = guild.voice_client
+        if not vc:
+            canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
+            if not canal:
+                print("❌ No se encontró el canal de voz")
+                return
+            vc = await canal.connect()
+
+        # Reproducir radio con reconexión automática
+        if not vc.is_playing():
+            def play_stream():
+                try:
+                    vc.play(
+                        discord.FFmpegPCMAudio(
+                            url,
+                            options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+                        ),
+                        after=lambda e: asyncio.run_coroutine_threadsafe(reconnect(vc, url), bot.loop)
+                    )
+                except Exception as e:
+                    print(f"❌ Error al reproducir radio: {e}")
+
+            async def reconnect(vc, url):
+                if not vc.is_playing():
+                    print("🔄 Reconectando radio...")
+                    await asyncio.sleep(3)
+                    play_stream()
+
+            play_stream()
+            print("🎶 Radio 24/7 activa")
+
+    except Exception as e:
+        print(f"❌ Error en conectar_radio: {e}")
+
 
 @bot.event
 async def on_ready():
@@ -507,4 +526,5 @@ async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
