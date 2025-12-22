@@ -6,7 +6,9 @@ from flask import Flask
 from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
-
+import random
+import asyncio
+import datetime
 # --- CONFIGURACIÓN DEL SERVIDOR WEB (FLASK) ---
 app = Flask(__name__)
 
@@ -114,6 +116,73 @@ async def decir_embed(interaction: discord.Interaction, titulo: str, descripcion
     except ValueError:
         await interaction.response.send_message("Error: Formato Hex inválido.", ephemeral=True)
 
+# --- COPIA DESDE AQUÍ ---
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="userinfo", description="Muestra información de un usuario")
+async def userinfo(interaction: discord.Interaction, miembro: discord.Member = None):
+    miembro = miembro or interaction.user
+    embed = discord.Embed(title=f"👤 Info de {miembro.name}", color=discord.Color.blue())
+    embed.set_thumbnail(url=miembro.avatar.url)
+    embed.add_field(name="ID", value=miembro.id, inline=True)
+    embed.add_field(name="Se unió", value=miembro.joined_at.strftime("%d/%m/%Y"), inline=True)
+    embed.add_field(name="Top Rol", value=miembro.top_role.mention, inline=True)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="mcskin", description="Muestra la skin de Minecraft de un jugador")
+async def mcskin(interaction: discord.Interaction, nombre: str):
+    embed = discord.Embed(title=f"Skin de {nombre}", color=discord.Color.green())
+    embed.set_image(url=f"https://mc-heads.net/body/{nombre}/left")
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="sorteo", description="Elige un ganador al azar")
+async def sorteo(interaction: discord.Interaction, premio: str):
+    usuarios = [m for m in interaction.guild.members if not m.bot]
+    ganador = random.choice(usuarios)
+    await interaction.response.send_message(f"🎉 **SORTEO: {premio}** 🎉\n¡El ganador es {ganador.mention}!")
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="votar", description="Crea una sugerencia (votos ✅/❌)")
+async def votar(interaction: discord.Interaction, sugerencia: str):
+    embed = discord.Embed(title="💡 Sugerencia", description=sugerencia, color=discord.Color.orange())
+    await interaction.response.send_message(embed=embed)
+    msg = await interaction.original_response()
+    await msg.add_reaction("✅")
+    await msg.add_reaction("❌")
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="encuesta", description="Encuesta de 2 opciones")
+async def encuesta(interaction: discord.Interaction, pregunta: str, op1: str, op2: str):
+    embed = discord.Embed(title="📊 Encuesta", description=f"**{pregunta}**\n\n1️⃣ {op1}\n2️⃣ {op2}", color=discord.Color.purple())
+    await interaction.response.send_message(embed=embed)
+    msg = await interaction.original_response()
+    await msg.add_reaction("1️⃣")
+    await msg.add_reaction("2️⃣")
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="limpiar", description="Borra mensajes")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def limpiar(interaction: discord.Interaction, cantidad: int):
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=cantidad)
+    await interaction.followup.send(f"✅ Borrados {len(deleted)} mensajes.", ephemeral=True)
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="recordatorio", description="Recordatorio en X minutos")
+async def recordatorio(interaction: discord.Interaction, minutos: int, texto: str):
+    await interaction.response.send_message(f"⏰ Te avisaré en {minutos} min.", ephemeral=True)
+    await asyncio.sleep(minutos * 60)
+    await interaction.user.send(f"🔔 **RECORDATORIO:** {texto}")
+
+class TicketView(discord.ui.View):
+    def __init__(self): super().__init__(timeout=None)
+    @discord.ui.button(label="Abrir Ticket", style=discord.ButtonStyle.green, emoji="📩", custom_id="tkt")
+    async def open_t(self, it: discord.Interaction, button: discord.ui.Button):
+        ch = await it.guild.create_text_channel(f"ticket-{it.user.name}", overwrites={
+            it.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            it.user: discord.PermissionOverwrite(read_messages=True, send_messages=True)})
+        await it.response.send_message(f"Ticket en {ch.mention}", ephemeral=True)
+
+@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="setup_ticket", description="Mensaje de tickets")
+async def setup_ticket(interaction: discord.Interaction):
+    await interaction.response.send_message(content="Pulsa para soporte", view=TicketView())
+
+# --- HASTA AQUÍ ---
 # --- INICIO DE TODO ---
 if __name__ == "__main__":
     # 1. Lanzamos el servidor web en un hilo aparte
