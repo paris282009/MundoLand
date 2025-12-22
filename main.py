@@ -1,28 +1,36 @@
 import os
-import webserver
 import discord
 import requests
+import threading
+from flask import Flask
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
 
-# 1. Cargar variables
+# --- CONFIGURACIÓN DEL SERVIDOR WEB (FLASK) ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Hola desde Flask! El bot está vivo."
+
+def run_flask():
+    # Render asigna un puerto automáticamente en la variable PORT
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host='0.0.0.0', port=port)
+
+# --- CONFIGURACIÓN DEL BOT ---
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-# Usamos un valor por defecto (0) por si el .env falla momentáneamente
 GUILD_ID_STR = os.getenv("GUILD_ID")
 GUILD_ID = int(GUILD_ID_STR) if GUILD_ID_STR else 0
 
-# 2. Configurar intents
 intents = discord.Intents.default()
 intents.members = True          
 intents.message_content = True  
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# 3. Arrancar servidor de hosting (Keep Alive)
-webserver.keep_alive()
-
-# --- EVENTOS ---
 @bot.event
 async def on_ready():
     print(f"{bot.user} está conectado ✅")
@@ -35,7 +43,7 @@ async def on_ready():
     except Exception as e:
         print(f"Error al sincronizar comandos: {e}")
 
-# --- COMANDOS /SLASH ---
+# --- TUS COMANDOS SLASH (SIN CAMBIOS) ---
 
 @bot.tree.command(guild=discord.Object(id=GUILD_ID), name="tiktok", description="Link del TikTok oficial")
 async def tiktok(interaction: discord.Interaction):
@@ -106,5 +114,11 @@ async def decir_embed(interaction: discord.Interaction, titulo: str, descripcion
     except ValueError:
         await interaction.response.send_message("Error: Formato Hex inválido.", ephemeral=True)
 
-# 4. Ejecución del Bot
-bot.run(DISCORD_TOKEN)
+# --- INICIO DE TODO ---
+if __name__ == "__main__":
+    # 1. Lanzamos el servidor web en un hilo aparte
+    t = threading.Thread(target=run_flask)
+    t.start()
+    
+    # 2. Ejecutamos el bot de Discord
+    bot.run(DISCORD_TOKEN)
