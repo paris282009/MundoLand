@@ -10,6 +10,7 @@ import random
 import datetime
 import asyncio
 import time
+
 START_TIME = time.time()
 
 # ======================================================
@@ -35,26 +36,9 @@ GUILD_ID = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") else None
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
+intents.voice_states = True  # Necesario para radio
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# ======================================================
-# 🚀 BOT READY
-# ======================================================
-@bot.event
-async def on_ready():
-    print(f"🟢 {bot.user} conectado correctamente")
-    try:
-        if GUILD_ID:
-            guild = discord.Object(id=GUILD_ID)
-            bot.tree.copy_global_to(guild=guild)
-            synced = await bot.tree.sync(guild=guild)
-            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
-        else:
-            synced = await bot.tree.sync()
-            print(f"🌍 {len(synced)} comandos globales sincronizados")
-    except Exception as e:
-        print(f"❌ Error al sincronizar comandos: {e}")
 
 # ======================================================
 # 🎨 FUNCIÓN BASE PARA EMBEDS
@@ -68,7 +52,47 @@ def embed_base(titulo, descripcion, color=discord.Color.gold()):
     )
     embed.set_footer(text="AetherMC • Sistema Oficial")
     return embed
+# ======================================================
+# 🚀 BOT READY + RADIO 24/7
+# ======================================================
+@bot.event
+async def on_ready():
+    print(f"🟢 Bot conectado como {bot.user}")
 
+    try:
+        if GUILD_ID:
+            guild = discord.Object(id=GUILD_ID)
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
+        else:
+            synced = await bot.tree.sync()
+            print(f"🌍 {len(synced)} comandos globales sincronizados")
+    except Exception as e:
+        print(f"❌ Error al sincronizar comandos: {e}")
+
+    # ======= RADIO 24/7 =======
+    VOICE_CHANNEL_ID = 1386099865926504568
+    RADIO_URL = "https://radio.streemlion.com:1875/stream"
+
+    channel = bot.get_channel(VOICE_CHANNEL_ID)
+    if not channel:
+        print("❌ No se encontró el canal de voz")
+        return
+
+    try:
+        vc = await channel.connect()
+    except:
+        vc = channel.guild.voice_client
+
+    if vc and not vc.is_playing():
+        vc.play(
+            discord.FFmpegPCMAudio(
+                RADIO_URL,
+                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            )
+        )
+        print("🎶 Radio 24/7 activa")
 # ======================================================
 # 🔗 REDES SOCIALES
 # ======================================================
@@ -124,26 +148,16 @@ async def mcskin(interaction: discord.Interaction, nombre: str):
 
 @bot.tree.command(name="mcstatus", description="Estado del servidor Minecraft")
 async def mcstatus(interaction: discord.Interaction):
-
-    # RESPONDEMOS INMEDIATO (clave para host gratis)
     await interaction.response.send_message(
-        "⏳ Consultando el estado del servidor...",
-        ephemeral=False
+        "⏳ Consultando el estado del servidor...", ephemeral=False
     )
 
     ip = "aethermc.space"
     puerto_bedrock = 19132
 
     try:
-        java = requests.get(
-            f"https://api.mcsrvstat.us/2/{ip}",
-            timeout=5
-        ).json()
-
-        bedrock = requests.get(
-            f"https://api.mcsrvstat.us/bedrock/2/{ip}:{puerto_bedrock}",
-            timeout=5
-        ).json()
+        java = requests.get(f"https://api.mcsrvstat.us/2/{ip}", timeout=5).json()
+        bedrock = requests.get(f"https://api.mcsrvstat.us/bedrock/2/{ip}:{puerto_bedrock}", timeout=5).json()
 
         embed = discord.Embed(
             title="🎮 Estado del Servidor AetherMC",
@@ -158,11 +172,7 @@ async def mcstatus(interaction: discord.Interaction):
                 inline=False
             )
         else:
-            embed.add_field(
-                name="☕ Java",
-                value="🔴 Offline",
-                inline=False
-            )
+            embed.add_field(name="☕ Java", value="🔴 Offline", inline=False)
 
         if bedrock.get("online"):
             embed.add_field(
@@ -171,30 +181,16 @@ async def mcstatus(interaction: discord.Interaction):
                 inline=False
             )
         else:
-            embed.add_field(
-                name="📱 Bedrock",
-                value="🔴 Offline",
-                inline=False
-            )
+            embed.add_field(name="📱 Bedrock", value="🔴 Offline", inline=False)
 
-        await interaction.edit_original_response(
-            content=None,
-            embed=embed
-        )
+        await interaction.edit_original_response(content=None, embed=embed)
 
     except:
-        await interaction.edit_original_response(
-            content="⚠️ No se pudo obtener el estado del servidor."
-        )
-
-
+        await interaction.edit_original_response(content="⚠️ No se pudo obtener el estado del servidor.")
 @bot.tree.command(name="stats", description="Perfil NameMC")
 async def stats(interaction: discord.Interaction, jugador: str):
     link = f"https://es.namemc.com/profile/{jugador}"
-    embed = embed_base(
-        f"📊 Perfil de {jugador}",
-        f"[Ver en NameMC]({link})"
-    )
+    embed = embed_base(f"📊 Perfil de {jugador}", f"[Ver en NameMC]({link})")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="logro", description="Logro de Minecraft")
@@ -246,11 +242,7 @@ async def votar(interaction: discord.Interaction, sugerencia: str):
 
 @bot.tree.command(name="encuesta", description="Encuesta")
 async def encuesta(interaction: discord.Interaction, pregunta: str, op1: str, op2: str):
-    embed = embed_base(
-        "📊 Encuesta",
-        f"**{pregunta}**\n\n1️⃣ {op1}\n2️⃣ {op2}",
-        discord.Color.purple()
-    )
+    embed = embed_base("📊 Encuesta", f"**{pregunta}**\n\n1️⃣ {op1}\n2️⃣ {op2}", discord.Color.purple())
     await interaction.response.send_message(embed=embed)
     msg = await interaction.original_response()
     await msg.add_reaction("1️⃣")
@@ -258,12 +250,8 @@ async def encuesta(interaction: discord.Interaction, pregunta: str, op1: str, op
 
 @bot.tree.command(name="votar_toop", description="Links para votar")
 async def votar_toop(interaction: discord.Interaction):
-    embed = embed_base(
-        "🗳️ Apoya al servidor",
-        "• https://minecraft-mp.com\n• https://topg.org"
-    )
+    embed = embed_base("🗳️ Apoya al servidor", "• https://minecraft-mp.com\n• https://topg.org")
     await interaction.response.send_message(embed=embed, ephemeral=True)
-
 # ======================================================
 # 🛡️ MODERACIÓN
 # ======================================================
@@ -334,7 +322,6 @@ class TicketView(discord.ui.View):
         )
         await canal.set_permissions(interaction.user, read_messages=True, send_messages=True)
         await canal.set_permissions(guild.default_role, read_messages=False)
-
         await canal.send(f"🎫 Ticket creado por {interaction.user.mention}")
         await interaction.response.send_message("✅ Ticket creado", ephemeral=True)
 
@@ -349,7 +336,6 @@ async def ticket(interaction: discord.Interaction):
 @bot.tree.command(name="setup_ticket", description="Configura el panel de tickets")
 @discord.app_commands.checks.has_permissions(administrator=True)
 async def setup_ticket(interaction: discord.Interaction):
-
     embed = discord.Embed(
         title="🎫 Sistema de Tickets",
         description=(
@@ -359,40 +345,9 @@ async def setup_ticket(interaction: discord.Interaction):
         ),
         color=discord.Color.green()
     )
-
-    await interaction.response.send_message(
-        embed=embed,
-        view=TicketView()
-    )
-
-@bot.event
-async def on_ready():
-    print(f"🤖 Bot conectado como {bot.user}")
-
-    VOICE_CHANNEL_ID = 1386099865926504568
-    RADIO_URL = "https://radio.streemlion.com:1875/stream"
-
-    channel = bot.get_channel(VOICE_CHANNEL_ID)
-    if not channel:
-        print("❌ No se encontró el canal de voz")
-        return
-
-    try:
-        vc = await channel.connect()
-    except:
-        vc = channel.guild.voice_client
-
-    if vc and not vc.is_playing():
-        vc.play(
-            discord.FFmpegPCMAudio(
-                RADIO_URL,
-                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-            )
-        )
-        print("🎶 Radio 24/7 activa")
-
+    await interaction.response.send_message(embed=embed, view=TicketView())
 # =========================
-# COMANDOS UTILIDAD + RADIO
+# COMANDOS DE UTILIDAD + RADIO
 # =========================
 
 # /ping
@@ -401,7 +356,6 @@ async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     await interaction.response.send_message(f"🏓 Pong! Latencia: **{latency} ms**")
 
-
 # /uptime
 @bot.tree.command(name="uptime", description="Tiempo que lleva encendido el bot")
 async def uptime(interaction: discord.Interaction):
@@ -409,12 +363,10 @@ async def uptime(interaction: discord.Interaction):
     uptime_str = str(datetime.timedelta(seconds=seconds))
     await interaction.response.send_message(f"⏱️ Uptime del bot: **{uptime_str}**")
 
-
 # /serverinfo
 @bot.tree.command(name="serverinfo", description="Información del servidor")
 async def serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
-
     embed = discord.Embed(
         title=f"📊 Información de {guild.name}",
         color=discord.Color.blurple()
@@ -424,26 +376,15 @@ async def serverinfo(interaction: discord.Interaction):
 
     embed.add_field(name="🆔 ID", value=guild.id, inline=True)
     embed.add_field(name="👥 Miembros", value=guild.member_count, inline=True)
-    embed.add_field(
-        name="📅 Creado",
-        value=guild.created_at.strftime("%d/%m/%Y"),
-        inline=True
-    )
-    embed.add_field(
-        name="🚀 Boosts",
-        value=guild.premium_subscription_count,
-        inline=True
-    )
-
+    embed.add_field(name="📅 Creado", value=guild.created_at.strftime("%d/%m/%Y"), inline=True)
+    embed.add_field(name="🚀 Boosts", value=guild.premium_subscription_count, inline=True)
     embed.set_footer(text=f"Solicitado por {interaction.user.name}")
     await interaction.response.send_message(embed=embed)
-
 
 # /avatar
 @bot.tree.command(name="avatar", description="Muestra el avatar de un usuario")
 async def avatar(interaction: discord.Interaction, usuario: discord.Member = None):
     usuario = usuario or interaction.user
-
     embed = discord.Embed(
         title=f"🖼️ Avatar de {usuario.name}",
         color=discord.Color.blue()
@@ -451,11 +392,9 @@ async def avatar(interaction: discord.Interaction, usuario: discord.Member = Non
     embed.set_image(url=usuario.avatar.url)
     await interaction.response.send_message(embed=embed)
 
-
 # =========================
 # COMANDOS DE RADIO 24/7
 # =========================
-
 # /radio
 @bot.tree.command(name="radio", description="Muestra el estado de la radio")
 async def radio(interaction: discord.Interaction):
@@ -464,7 +403,6 @@ async def radio(interaction: discord.Interaction):
         await interaction.response.send_message("🎶 La radio está sonando actualmente.")
     else:
         await interaction.response.send_message("❌ La radio no está activa.")
-
 
 # /radio_detener
 @bot.tree.command(name="radio_detener", description="Detiene la radio")
@@ -476,16 +414,12 @@ async def radio_detener(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ El bot no está en un canal de voz.")
 
-
 # /radio_cambiar
 @bot.tree.command(name="radio_cambiar", description="Cambia la emisora de radio")
 async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
     vc = interaction.guild.voice_client
     if not vc:
-        return await interaction.response.send_message(
-            "❌ El bot no está en un canal de voz."
-        )
-
+        return await interaction.response.send_message("❌ El bot no está en un canal de voz.")
     vc.stop()
     vc.play(discord.FFmpegPCMAudio(nueva_url))
     await interaction.response.send_message("🔄 Radio cambiada correctamente.")
@@ -496,9 +430,3 @@ async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
-
-
-
-
-
-
