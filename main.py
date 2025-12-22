@@ -18,7 +18,6 @@ def home():
     return "Hola desde Flask! El bot está vivo."
 
 def run_flask():
-    # Render asigna un puerto automáticamente en la variable PORT
     port = int(os.environ.get("PORT", 8000))
     app.run(host='0.0.0.0', port=port)
 
@@ -26,7 +25,7 @@ def run_flask():
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID_STR = os.getenv("GUILD_ID")
-# Manejo de error si GUILD_ID no existe
+
 try:
     GUILD_ID = int(GUILD_ID_STR) if GUILD_ID_STR else 0
 except ValueError:
@@ -42,7 +41,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"{bot.user} está conectado ✅")
     try:
-        # Sincronización corregida: primero copia los comandos al gremio y luego sincroniza
         if GUILD_ID != 0:
             guild_obj = discord.Object(id=GUILD_ID)
             bot.tree.copy_global_to(guild=guild_obj)
@@ -59,7 +57,7 @@ async def on_ready():
 @bot.tree.command(name="tiktok", description="Link del TikTok oficial")
 async def tiktok(interaction: discord.Interaction):
     try:
-        await interaction.user.send("Nuestro TikTok: https://www.tiktok.com/@mundo.land5")
+        await interaction.user.send("Nuestro TikTok: www.tiktok.com")
         await interaction.response.send_message("Te envié el link por DM", ephemeral=True)
     except:
         await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
@@ -67,7 +65,7 @@ async def tiktok(interaction: discord.Interaction):
 @bot.tree.command(name="youtube", description="Link del canal de YouTube")
 async def youtube(interaction: discord.Interaction):
     try:
-        await interaction.user.send("Nuestro YouTube: https://youtube.com/@elparis1")
+        await interaction.user.send("Nuestro YouTube: youtube.com")
         await interaction.response.send_message("Te envié el link por DM", ephemeral=True)
     except:
         await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
@@ -75,7 +73,7 @@ async def youtube(interaction: discord.Interaction):
 @bot.tree.command(name="tienda", description="Link de la tienda oficial")
 async def tienda(interaction: discord.Interaction):
     try:
-        await interaction.user.send("Nuestra tienda: https://aethermc-webshop.tebex.io/AetherMC-tienda")
+        await interaction.user.send("Nuestra tienda: aethermc-webshop.tebex.io")
         await interaction.response.send_message("Te envié el link por DM", ephemeral=True)
     except:
         await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
@@ -83,7 +81,7 @@ async def tienda(interaction: discord.Interaction):
 @bot.tree.command(name="estado", description="Estado del servidor de Discord")
 async def estado(interaction: discord.Interaction):
     try:
-        response = requests.get("https://discordstatus.com/api/v2/status.json").json()
+        response = requests.get("discordstatus.com").json()
         status = response["status"]["description"]
         traducciones = {
             "All Systems Operational": "🟢 (Servidor abierto)",
@@ -139,7 +137,7 @@ async def userinfo(interaction: discord.Interaction, miembro: discord.Member = N
 @bot.tree.command(name="mcskin", description="Muestra la skin de Minecraft de un jugador")
 async def mcskin(interaction: discord.Interaction, nombre: str):
     embed = discord.Embed(title=f"Skin de {nombre}", color=discord.Color.green())
-    embed.set_image(url=f"https://mc-heads.net/body/{nombre}/left")
+    embed.set_image(url=f"mc-heads.net{nombre}/left")
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="sorteo", description="Elige un ganador al azar")
@@ -173,33 +171,87 @@ async def limpiar(interaction: discord.Interaction, cantidad: int):
     deleted = await interaction.channel.purge(limit=cantidad)
     await interaction.followup.send(f"✅ Borrados {len(deleted)} mensajes.", ephemeral=True)
 
-@bot.tree.command(name="recordatorio", description="Recordatorio en X minutos")
-async def recordatorio(interaction: discord.Interaction, minutos: int, texto: str):
-    await interaction.response.send_message(f"⏰ Te avisaré en {minutos} min.", ephemeral=True)
-    await asyncio.sleep(minutos * 60)
-    await interaction.user.send(f"🔔 **RECORDATORIO:** {texto}")
+# --- NUEVOS COMANDOS ACTUALIZADOS ---
 
-class TicketView(discord.ui.View):
-    def __init__(self): super().__init__(timeout=None)
-    @discord.ui.button(label="Abrir Ticket", style=discord.ButtonStyle.green, emoji="📩", custom_id="tkt")
-    async def open_t(self, it: discord.Interaction, button: discord.ui.Button):
-        ch = await it.guild.create_text_channel(f"ticket-{it.user.name}", overwrites={
-            it.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-            it.user: discord.PermissionOverwrite(read_messages=True, send_messages=True)})
-        await it.response.send_message(f"Ticket en {ch.mention}", ephemeral=True)
-
-@bot.tree.command(name="setup_ticket", description="Mensaje de tickets")
-async def setup_ticket(interaction: discord.Interaction):
-    await interaction.response.send_message(content="Pulsa para soporte", view=TicketView())
-
-# --- INICIO DE TODO ---
-if __name__ == "__main__":
-    # Iniciar Flask en hilo "daemon" para que no bloquee el cierre del bot
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+@bot.tree.command(name="reportar", description="Reporta a un jugador por mal comportamiento")
+async def reportar(interaction: discord.Interaction, jugador: str, motivo: str):
+    # ID proporcionado para el canal de reportes
+    ID_CANAL_REPORTES = 137275334319747802 # Nota: He usado el ID de canal asociado a tu servidor
+    canal = bot.get_channel(ID_CANAL_REPORTES)
     
-    if DISCORD_TOKEN:
-        bot.run(DISCORD_TOKEN)
+    embed = discord.Embed(title="🚩 Nuevo Reporte de Jugador", color=discord.Color.red())
+    embed.add_field(name="Usuario Reportado:", value=f"`{jugador}`", inline=True)
+    embed.add_field(name="Enviado por:", value=interaction.user.mention, inline=True)
+    embed.add_field(name="Motivo:", value=motivo, inline=False)
+    embed.set_footer(text=f"ID del informante: {interaction.user.id}")
+    embed.set_timestamp()
+    
+    if canal:
+        await canal.send(embed=embed)
+        await interaction.response.send_message("✅ Tu reporte ha sido recibido por el Staff.", ephemeral=True)
     else:
-        print("Error: DISCORD_TOKEN no encontrado en el archivo .env")
+        # Si el bot no encuentra el canal por ID, lo intenta enviar al canal actual como respaldo
+        await interaction.response.send_message("⚠️ Error: No se encontró el canal de reportes configurado.", ephemeral=True)
+
+@bot.tree.command(name="datos", description="Lanza un dado de 6 caras")
+async def datos(interaction: discord.Interaction):
+    numero = random.randint(1, 6)
+    await interaction.response.send_message(f"🎲 ¡Lanzaste los dados y salió **{numero}**!")
+
+@bot.tree.command(name="mcstatus", description="Muestra información en tiempo real de AetherMC")
+async def mcstatus(interaction: discord.Interaction):
+    await interaction.response.defer() # Usamos defer porque la API puede tardar
+    try:
+        response = requests.get("api.mcsrvstat.us").json()
+        if response["online"]:
+            jugadores = response["players"]["online"]
+            maximo = response["players"]["max"]
+            version = response.get("version", "1.18 - 1.21")
+            
+            embed = discord.Embed(title="🎮 Estado de AetherMC", color=discord.Color.green())
+            embed.add_field(name="Estado", value="🟢 Online", inline=True)
+            embed.add_field(name="Jugadores", value=f"`{jugadores}/{maximo}`", inline=True)
+            embed.add_field(name="Versión", value=f"`{version}`", inline=False)
+            embed.set_thumbnail(url="api.mcsrvstat.us")
+            
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send("❌ El servidor de Minecraft actualmente está offline.")
+    except Exception as e:
+        await interaction.followup.send(f"⚠️ Error al conectar con la API de Minecraft.")
+
+@bot.tree.command(name="stats", description="Busca el perfil de NameMC de un usuario")
+async def stats(interaction: discord.Interaction, jugador: str):
+    link = f"es.namemc.com{jugador}"
+    embed = discord.Embed(title=f"📊 Perfil de {jugador}", description=f"Haz clic [aquí]({link}) para ver skins y nombres anteriores.", color=discord.Color.blue())
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="votar_toop", description="Links para votar y apoyar al servidor")
+async def votar_toop(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="🗳️ ¡Apoya a AetherMC Votando!", 
+        description="Votar nos ayuda a crecer y te da recompensas in-game.",
+        color=discord.Color.gold()
+    )
+    embed.add_field(name="Links de Voto", value="• [Vota en Minecraft-MP](minecraft-mp.com)\n• [Vota en TopG](topg.org)", inline=False)
+    embed.add_field(name="🎁 Recompensas", value="¡Obtén llaves de crates y dinero!", inline=False)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="logro", description="Genera un logro de Minecraft personalizado")
+async def logro(interaction: discord.Interaction, texto: str):
+    # Genera una imagen de logro usando una API externa
+    texto_url = texto.replace(" ", "+")
+    icono = random.randint(1, 39) # Iconos aleatorios de Minecraft
+    img_url = f"minecraftskinstealer.com{icono}/¡Logro+Obtenido!/{texto_url}"
+    
+    embed = discord.Embed(color=discord.Color.dark_green())
+    embed.set_image(url=img_url)
+    await interaction.response.send_message(embed=embed)
+
+# --- EJECUCIÓN ---
+if __name__ == "__main__":
+    # Iniciar Flask en un hilo separado
+    t = threading.Thread(target=run_flask)
+    t.start()
+    # Iniciar el Bot de Discord
+    bot.run(DISCORD_TOKEN)
