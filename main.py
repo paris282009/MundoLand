@@ -363,12 +363,31 @@ async def setup_ticket(interaction: discord.Interaction):
         view=TicketView()
     )
 
+@bot.event
+async def on_ready():
+    print(f"🤖 Bot conectado como {bot.user}")
+
+    VOICE_CHANNEL_ID = 1386099865926504568
+    RADIO_URL = "https://stream.zeno.fm/0k9v1k6x4p8uv"
+
+    channel = bot.get_channel(VOICE_CHANNEL_ID)
+    if channel:
+        try:
+            vc = await channel.connect()
+        except:
+            vc = channel.guild.voice_client
+
+        if vc and not vc.is_playing():
+            vc.play(discord.FFmpegPCMAudio(RADIO_URL))
+            print("🎶 Radio 24/7 activa")
+
 # ======================================================
 # ▶️ EJECUCIÓN
 # ======================================================
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
