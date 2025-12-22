@@ -344,11 +344,31 @@ async def ticket(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=embed, view=TicketView())
 
+@bot.tree.command(name="setup_ticket", description="Configura el panel de tickets")
+@discord.app_commands.checks.has_permissions(administrator=True)
+async def setup_ticket(interaction: discord.Interaction):
+
+    embed = discord.Embed(
+        title="🎫 Sistema de Tickets",
+        description=(
+            "Bienvenido al sistema de soporte de **AetherMC**\n\n"
+            "Pulsa el botón de abajo para crear un ticket y "
+            "el staff te atenderá lo antes posible."
+        ),
+        color=discord.Color.green()
+    )
+
+    await interaction.response.send_message(
+        embed=embed,
+        view=TicketView()
+    )
+
 # ======================================================
 # ▶️ EJECUCIÓN
 # ======================================================
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
