@@ -368,7 +368,7 @@ async def on_ready():
     print(f"🤖 Bot conectado como {bot.user}")
 
     VOICE_CHANNEL_ID = 1386099865926504568
-    RADIO_URL = "https://stream.zeno.fm/0k9v1k6x4p8uv"
+    RADIO_URL = "RADIO_URL = "https://radio.streemlion.com:1875/stream"
 
     channel = bot.get_channel(VOICE_CHANNEL_ID)
     if channel:
@@ -387,6 +387,7 @@ async def on_ready():
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
