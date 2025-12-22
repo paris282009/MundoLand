@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import random
 import asyncio
 import datetime
+
 # --- CONFIGURACIÓN DEL SERVIDOR WEB (FLASK) ---
 app = Flask(__name__)
 
@@ -25,7 +26,11 @@ def run_flask():
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID_STR = os.getenv("GUILD_ID")
-GUILD_ID = int(GUILD_ID_STR) if GUILD_ID_STR else 0
+# Manejo de error si GUILD_ID no existe
+try:
+    GUILD_ID = int(GUILD_ID_STR) if GUILD_ID_STR else 0
+except ValueError:
+    GUILD_ID = 0
 
 intents = discord.Intents.default()
 intents.members = True          
@@ -37,17 +42,21 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"{bot.user} está conectado ✅")
     try:
+        # Sincronización corregida: primero copia los comandos al gremio y luego sincroniza
         if GUILD_ID != 0:
-            synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-            print(f"Comandos sincronizados: {len(synced)}")
+            guild_obj = discord.Object(id=GUILD_ID)
+            bot.tree.copy_global_to(guild=guild_obj)
+            synced = await bot.tree.sync(guild=guild_obj)
+            print(f"Comandos sincronizados en servidor {GUILD_ID}: {len(synced)}")
         else:
-            print("Error: GUILD_ID no encontrado en el archivo .env")
+            synced = await bot.tree.sync()
+            print(f"Comandos sincronizados globalmente: {len(synced)}")
     except Exception as e:
         print(f"Error al sincronizar comandos: {e}")
 
-# --- TUS COMANDOS SLASH (SIN CAMBIOS) ---
+# --- TUS COMANDOS SLASH ---
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="tiktok", description="Link del TikTok oficial")
+@bot.tree.command(name="tiktok", description="Link del TikTok oficial")
 async def tiktok(interaction: discord.Interaction):
     try:
         await interaction.user.send("Nuestro TikTok: https://www.tiktok.com/@mundo.land5")
@@ -55,7 +64,7 @@ async def tiktok(interaction: discord.Interaction):
     except:
         await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="youtube", description="Link del canal de YouTube")
+@bot.tree.command(name="youtube", description="Link del canal de YouTube")
 async def youtube(interaction: discord.Interaction):
     try:
         await interaction.user.send("Nuestro YouTube: https://youtube.com/@elparis1")
@@ -63,7 +72,7 @@ async def youtube(interaction: discord.Interaction):
     except:
         await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="tienda", description="Link de la tienda oficial")
+@bot.tree.command(name="tienda", description="Link de la tienda oficial")
 async def tienda(interaction: discord.Interaction):
     try:
         await interaction.user.send("Nuestra tienda: https://aethermc-webshop.tebex.io/AetherMC-tienda")
@@ -71,7 +80,7 @@ async def tienda(interaction: discord.Interaction):
     except:
         await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="estado", description="Estado del servidor de Discord")
+@bot.tree.command(name="estado", description="Estado del servidor de Discord")
 async def estado(interaction: discord.Interaction):
     try:
         response = requests.get("https://discordstatus.com/api/v2/status.json").json()
@@ -81,12 +90,12 @@ async def estado(interaction: discord.Interaction):
             "Partial System Outage": "🟡 (Servidor inestable)",
             "Major System Outage": "🔴 (Servidor cerrado)"
         }
-        estado_es = traducciones.get(status, "⚠ (Estado desconocido)")
+        estado_es = traducciones.get(status, f"⚠ ({status})")
         await interaction.response.send_message(estado_es)
     except:
         await interaction.response.send_message("⚠ (Error al obtener el estado)")
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="ip", description="IP del servidor de Minecraft")
+@bot.tree.command(name="ip", description="IP del servidor de Minecraft")
 async def ip(interaction: discord.Interaction):
     embed = discord.Embed(
         title="AetherMC",
@@ -95,7 +104,7 @@ async def ip(interaction: discord.Interaction):
     )
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="say", description="Envía un mensaje a través del bot")
+@bot.tree.command(name="say", description="Envía un mensaje a través del bot")
 async def say(interaction: discord.Interaction, mensaje: str):
     if interaction.user.guild_permissions.administrator:
         await interaction.channel.send(mensaje)
@@ -103,7 +112,7 @@ async def say(interaction: discord.Interaction, mensaje: str):
     else:
         await interaction.response.send_message("No tienes permisos.", ephemeral=True)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="decir_embed", description="Envía un mensaje elegante (Embed)")
+@bot.tree.command(name="decir_embed", description="Envía un mensaje elegante (Embed)")
 async def decir_embed(interaction: discord.Interaction, titulo: str, descripcion: str, color_hex: str = "FFD700"):
     if not interaction.user.guild_permissions.administrator:
         return await interaction.response.send_message("No tienes permisos.", ephemeral=True)
@@ -116,31 +125,32 @@ async def decir_embed(interaction: discord.Interaction, titulo: str, descripcion
     except ValueError:
         await interaction.response.send_message("Error: Formato Hex inválido.", ephemeral=True)
 
-# --- COPIA DESDE AQUÍ ---
-
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="userinfo", description="Muestra información de un usuario")
+@bot.tree.command(name="userinfo", description="Muestra información de un usuario")
 async def userinfo(interaction: discord.Interaction, miembro: discord.Member = None):
     miembro = miembro or interaction.user
     embed = discord.Embed(title=f"👤 Info de {miembro.name}", color=discord.Color.blue())
-    embed.set_thumbnail(url=miembro.avatar.url)
+    if miembro.avatar:
+        embed.set_thumbnail(url=miembro.avatar.url)
     embed.add_field(name="ID", value=miembro.id, inline=True)
-    embed.add_field(name="Se unió", value=miembro.joined_at.strftime("%d/%m/%Y"), inline=True)
+    embed.add_field(name="Se unió", value=miembro.joined_at.strftime("%d/%m/%Y") if miembro.joined_at else "Desconocido", inline=True)
     embed.add_field(name="Top Rol", value=miembro.top_role.mention, inline=True)
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="mcskin", description="Muestra la skin de Minecraft de un jugador")
+@bot.tree.command(name="mcskin", description="Muestra la skin de Minecraft de un jugador")
 async def mcskin(interaction: discord.Interaction, nombre: str):
     embed = discord.Embed(title=f"Skin de {nombre}", color=discord.Color.green())
     embed.set_image(url=f"https://mc-heads.net/body/{nombre}/left")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="sorteo", description="Elige un ganador al azar")
+@bot.tree.command(name="sorteo", description="Elige un ganador al azar")
 async def sorteo(interaction: discord.Interaction, premio: str):
     usuarios = [m for m in interaction.guild.members if not m.bot]
+    if not usuarios:
+        return await interaction.response.send_message("No hay usuarios para elegir.")
     ganador = random.choice(usuarios)
     await interaction.response.send_message(f"🎉 **SORTEO: {premio}** 🎉\n¡El ganador es {ganador.mention}!")
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="votar", description="Crea una sugerencia (votos ✅/❌)")
+@bot.tree.command(name="votar", description="Crea una sugerencia (votos ✅/❌)")
 async def votar(interaction: discord.Interaction, sugerencia: str):
     embed = discord.Embed(title="💡 Sugerencia", description=sugerencia, color=discord.Color.orange())
     await interaction.response.send_message(embed=embed)
@@ -148,7 +158,7 @@ async def votar(interaction: discord.Interaction, sugerencia: str):
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="encuesta", description="Encuesta de 2 opciones")
+@bot.tree.command(name="encuesta", description="Encuesta de 2 opciones")
 async def encuesta(interaction: discord.Interaction, pregunta: str, op1: str, op2: str):
     embed = discord.Embed(title="📊 Encuesta", description=f"**{pregunta}**\n\n1️⃣ {op1}\n2️⃣ {op2}", color=discord.Color.purple())
     await interaction.response.send_message(embed=embed)
@@ -156,14 +166,14 @@ async def encuesta(interaction: discord.Interaction, pregunta: str, op1: str, op
     await msg.add_reaction("1️⃣")
     await msg.add_reaction("2️⃣")
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="limpiar", description="Borra mensajes")
+@bot.tree.command(name="limpiar", description="Borra mensajes")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def limpiar(interaction: discord.Interaction, cantidad: int):
     await interaction.response.defer(ephemeral=True)
     deleted = await interaction.channel.purge(limit=cantidad)
     await interaction.followup.send(f"✅ Borrados {len(deleted)} mensajes.", ephemeral=True)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="recordatorio", description="Recordatorio en X minutos")
+@bot.tree.command(name="recordatorio", description="Recordatorio en X minutos")
 async def recordatorio(interaction: discord.Interaction, minutos: int, texto: str):
     await interaction.response.send_message(f"⏰ Te avisaré en {minutos} min.", ephemeral=True)
     await asyncio.sleep(minutos * 60)
@@ -178,16 +188,18 @@ class TicketView(discord.ui.View):
             it.user: discord.PermissionOverwrite(read_messages=True, send_messages=True)})
         await it.response.send_message(f"Ticket en {ch.mention}", ephemeral=True)
 
-@bot.tree.command(guild=discord.Object(id=GUILD_ID), name="setup_ticket", description="Mensaje de tickets")
+@bot.tree.command(name="setup_ticket", description="Mensaje de tickets")
 async def setup_ticket(interaction: discord.Interaction):
     await interaction.response.send_message(content="Pulsa para soporte", view=TicketView())
 
-# --- HASTA AQUÍ ---
 # --- INICIO DE TODO ---
 if __name__ == "__main__":
-    # 1. Lanzamos el servidor web en un hilo aparte
+    # Iniciar Flask en hilo "daemon" para que no bloquee el cierre del bot
     t = threading.Thread(target=run_flask)
+    t.daemon = True
     t.start()
     
-    # 2. Ejecutamos el bot de Discord
-    bot.run(DISCORD_TOKEN)
+    if DISCORD_TOKEN:
+        bot.run(DISCORD_TOKEN)
+    else:
+        print("Error: DISCORD_TOKEN no encontrado en el archivo .env")
