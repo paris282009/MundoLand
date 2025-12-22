@@ -120,20 +120,77 @@ async def mcskin(interaction: discord.Interaction, nombre: str):
     embed.set_image(url=f"https://mc-heads.net/body/{nombre}/300")
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="mcstatus", description="Estado del servidor Minecraft")
+@bot.tree.command(name="mcstatus", description="Estado del servidor Minecraft (Java + Bedrock)")
 async def mcstatus(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer()  # visible para todos
+
+    ip = "aethermc.space"
+    puerto_bedrock = 19132
+
     try:
-        r = requests.get("https://api.mcsrvstat.us/2/aethermc.space").json()
-        if r["online"]:
-            embed = embed_base("🎮 AetherMC Online", "")
-            embed.add_field(name="Jugadores", value=f"{r['players']['online']}/{r['players']['max']}")
-            embed.add_field(name="Versión", value=r.get("version", "1.18–1.21"))
-            await interaction.followup.send(embed=embed)
+        # ===== JAVA =====
+        java_data = requests.get(
+            f"https://api.mcsrvstat.us/2/{ip}",
+            timeout=10
+        ).json()
+
+        # ===== BEDROCK =====
+        bedrock_data = requests.get(
+            f"https://api.mcsrvstat.us/bedrock/2/{ip}:{puerto_bedrock}",
+            timeout=10
+        ).json()
+
+        embed = embed_base(
+            "🎮 Estado del Servidor AetherMC",
+            f"🌍 **IP:** `{ip}`"
+        )
+
+        # --- JAVA ---
+        if java_data.get("online"):
+            embed.add_field(
+                name="☕ Java Edition",
+                value=(
+                    "🟢 **Online**\n"
+                    f"👥 Jugadores: `{java_data['players']['online']}/{java_data['players']['max']}`\n"
+                    f"🧩 Versión: `{java_data.get('version', 'Desconocida')}`"
+                ),
+                inline=False
+            )
         else:
-            await interaction.followup.send("🔴 Servidor Offline")
-    except:
-        await interaction.followup.send("⚠️ Error al consultar el servidor")
+            embed.add_field(
+                name="☕ Java Edition",
+                value="🔴 **Offline**",
+                inline=False
+            )
+
+        # --- BEDROCK ---
+        if bedrock_data.get("online"):
+            embed.add_field(
+                name="📱 Bedrock Edition",
+                value=(
+                    "🟢 **Online**\n"
+                    f"👥 Jugadores: `{bedrock_data['players']['online']}/{bedrock_data['players']['max']}`\n"
+                    f"🔌 Puerto: `{puerto_bedrock}`"
+                ),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="📱 Bedrock Edition",
+                value="🔴 **Offline**",
+                inline=False
+            )
+
+        embed.set_footer(text="AetherMC • Estado en tiempo real")
+        embed.timestamp = datetime.datetime.utcnow()
+
+        await interaction.followup.send(embed=embed)
+
+    except Exception:
+        await interaction.followup.send(
+            "⚠️ No se pudo obtener el estado del servidor en este momento."
+        )
+
 
 @bot.tree.command(name="stats", description="Perfil NameMC")
 async def stats(interaction: discord.Interaction, jugador: str):
@@ -299,3 +356,4 @@ async def ticket(interaction: discord.Interaction):
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
