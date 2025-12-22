@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 import random
 import datetime
 import asyncio
+import time
+START_TIME = time.time()
 
 # ======================================================
 # 🌐 SERVIDOR WEB (FLASK) – KEEP ALIVE
@@ -368,18 +370,125 @@ async def on_ready():
     print(f"🤖 Bot conectado como {bot.user}")
 
     VOICE_CHANNEL_ID = 1386099865926504568
-    RADIO_URL = "RADIO_URL = "https://radio.streemlion.com:1875/stream"
+    RADIO_URL = "https://radio.streemlion.com:1875/stream"
 
     channel = bot.get_channel(VOICE_CHANNEL_ID)
-    if channel:
-        try:
-            vc = await channel.connect()
-        except:
-            vc = channel.guild.voice_client
+    if not channel:
+        print("❌ No se encontró el canal de voz")
+        return
 
-        if vc and not vc.is_playing():
-            vc.play(discord.FFmpegPCMAudio(RADIO_URL))
-            print("🎶 Radio 24/7 activa")
+    try:
+        vc = await channel.connect()
+    except:
+        vc = channel.guild.voice_client
+
+    if vc and not vc.is_playing():
+        vc.play(
+            discord.FFmpegPCMAudio(
+                RADIO_URL,
+                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            )
+        )
+        print("🎶 Radio 24/7 activa")
+
+# =========================
+# COMANDOS UTILIDAD + RADIO
+# =========================
+
+# /ping
+@bot.tree.command(name="ping", description="Muestra la latencia del bot")
+async def ping(interaction: discord.Interaction):
+    latency = round(bot.latency * 1000)
+    await interaction.response.send_message(f"🏓 Pong! Latencia: **{latency} ms**")
+
+
+# /uptime
+@bot.tree.command(name="uptime", description="Tiempo que lleva encendido el bot")
+async def uptime(interaction: discord.Interaction):
+    seconds = int(time.time() - START_TIME)
+    uptime_str = str(datetime.timedelta(seconds=seconds))
+    await interaction.response.send_message(f"⏱️ Uptime del bot: **{uptime_str}**")
+
+
+# /serverinfo
+@bot.tree.command(name="serverinfo", description="Información del servidor")
+async def serverinfo(interaction: discord.Interaction):
+    guild = interaction.guild
+
+    embed = discord.Embed(
+        title=f"📊 Información de {guild.name}",
+        color=discord.Color.blurple()
+    )
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+
+    embed.add_field(name="🆔 ID", value=guild.id, inline=True)
+    embed.add_field(name="👥 Miembros", value=guild.member_count, inline=True)
+    embed.add_field(
+        name="📅 Creado",
+        value=guild.created_at.strftime("%d/%m/%Y"),
+        inline=True
+    )
+    embed.add_field(
+        name="🚀 Boosts",
+        value=guild.premium_subscription_count,
+        inline=True
+    )
+
+    embed.set_footer(text=f"Solicitado por {interaction.user.name}")
+    await interaction.response.send_message(embed=embed)
+
+
+# /avatar
+@bot.tree.command(name="avatar", description="Muestra el avatar de un usuario")
+async def avatar(interaction: discord.Interaction, usuario: discord.Member = None):
+    usuario = usuario or interaction.user
+
+    embed = discord.Embed(
+        title=f"🖼️ Avatar de {usuario.name}",
+        color=discord.Color.blue()
+    )
+    embed.set_image(url=usuario.avatar.url)
+    await interaction.response.send_message(embed=embed)
+
+
+# =========================
+# COMANDOS DE RADIO 24/7
+# =========================
+
+# /radio
+@bot.tree.command(name="radio", description="Muestra el estado de la radio")
+async def radio(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc and vc.is_playing():
+        await interaction.response.send_message("🎶 La radio está sonando actualmente.")
+    else:
+        await interaction.response.send_message("❌ La radio no está activa.")
+
+
+# /radio_detener
+@bot.tree.command(name="radio_detener", description="Detiene la radio")
+async def radio_detener(interaction: discord.Interaction):
+    vc = interaction.guild.voice_client
+    if vc:
+        vc.stop()
+        await interaction.response.send_message("⏹️ Radio detenida.")
+    else:
+        await interaction.response.send_message("❌ El bot no está en un canal de voz.")
+
+
+# /radio_cambiar
+@bot.tree.command(name="radio_cambiar", description="Cambia la emisora de radio")
+async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
+    vc = interaction.guild.voice_client
+    if not vc:
+        return await interaction.response.send_message(
+            "❌ El bot no está en un canal de voz."
+        )
+
+    vc.stop()
+    vc.play(discord.FFmpegPCMAudio(nueva_url))
+    await interaction.response.send_message("🔄 Radio cambiada correctamente.")
 
 # ======================================================
 # ▶️ EJECUCIÓN
@@ -387,6 +496,7 @@ async def on_ready():
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
