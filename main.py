@@ -7,251 +7,295 @@ from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
 import random
-import asyncio
 import datetime
+import asyncio
 
-# --- CONFIGURACIÓN DEL SERVIDOR WEB (FLASK) ---
+# ======================================================
+# 🌐 SERVIDOR WEB (FLASK) – KEEP ALIVE
+# ======================================================
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
-    return "Hola desde Flask! El bot está vivo."
+    return "✅ Bot activo – AetherMC"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)
 
-# --- CONFIGURACIÓN DEL BOT ---
+# ======================================================
+# ⚙️ CONFIGURACIÓN DEL BOT
+# ======================================================
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID_STR = os.getenv("GUILD_ID")
-
-try:
-    GUILD_ID = int(GUILD_ID_STR) if GUILD_ID_STR else 0
-except ValueError:
-    GUILD_ID = 0
+GUILD_ID = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") else None
 
 intents = discord.Intents.default()
-intents.members = True          
-intents.message_content = True  
+intents.members = True
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ======================================================
+# 🚀 BOT READY
+# ======================================================
 @bot.event
 async def on_ready():
-    print(f"{bot.user} está conectado ✅")
+    print(f"🟢 {bot.user} conectado correctamente")
     try:
-        if GUILD_ID != 0:
-            guild_obj = discord.Object(id=GUILD_ID)
-            bot.tree.copy_global_to(guild=guild_obj)
-            synced = await bot.tree.sync(guild=guild_obj)
-            print(f"Comandos sincronizados en servidor {GUILD_ID}: {len(synced)}")
+        if GUILD_ID:
+            guild = discord.Object(id=GUILD_ID)
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
         else:
             synced = await bot.tree.sync()
-            print(f"Comandos sincronizados globalmente: {len(synced)}")
+            print(f"🌍 {len(synced)} comandos globales sincronizados")
     except Exception as e:
-        print(f"Error al sincronizar comandos: {e}")
+        print(f"❌ Error al sincronizar comandos: {e}")
 
-# --- TUS COMANDOS SLASH ---
+# ======================================================
+# 🎨 FUNCIÓN BASE PARA EMBEDS
+# ======================================================
+def embed_base(titulo, descripcion, color=discord.Color.gold()):
+    embed = discord.Embed(
+        title=titulo,
+        description=descripcion,
+        color=color,
+        timestamp=datetime.datetime.utcnow()
+    )
+    embed.set_footer(text="AetherMC • Sistema Oficial")
+    return embed
 
-@bot.tree.command(name="tiktok", description="Link del TikTok oficial")
+# ======================================================
+# 🔗 REDES SOCIALES
+# ======================================================
+@bot.tree.command(name="tiktok", description="TikTok oficial")
 async def tiktok(interaction: discord.Interaction):
-    try:
-        await interaction.user.send("Nuestro TikTok: www.tiktok.com")
-        await interaction.response.send_message("Te envié el link por DM", ephemeral=True)
-    except:
-        await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
+    await interaction.response.send_message(
+        embed=embed_base("🎵 TikTok", "👉 https://www.tiktok.com"),
+        ephemeral=True
+    )
 
-@bot.tree.command(name="youtube", description="Link del canal de YouTube")
+@bot.tree.command(name="youtube", description="YouTube oficial")
 async def youtube(interaction: discord.Interaction):
-    try:
-        await interaction.user.send("Nuestro YouTube: youtube.com")
-        await interaction.response.send_message("Te envié el link por DM", ephemeral=True)
-    except:
-        await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
+    await interaction.response.send_message(
+        embed=embed_base("▶️ YouTube", "👉 https://www.youtube.com"),
+        ephemeral=True
+    )
 
-@bot.tree.command(name="tienda", description="Link de la tienda oficial")
+@bot.tree.command(name="tienda", description="Tienda oficial")
 async def tienda(interaction: discord.Interaction):
-    try:
-        await interaction.user.send("Nuestra tienda: aethermc-webshop.tebex.io")
-        await interaction.response.send_message("Te envié el link por DM", ephemeral=True)
-    except:
-        await interaction.response.send_message("No pude enviarte DM.", ephemeral=True)
+    await interaction.response.send_message(
+        embed=embed_base("🛒 Tienda Oficial", "👉 https://aethermc-webshop.tebex.io"),
+        ephemeral=True
+    )
 
-@bot.tree.command(name="estado", description="Estado del servidor de Discord")
+# ======================================================
+# 📡 ESTADO DISCORD
+# ======================================================
+@bot.tree.command(name="estado", description="Estado de Discord")
 async def estado(interaction: discord.Interaction):
     try:
-        response = requests.get("discordstatus.com").json()
-        status = response["status"]["description"]
-        traducciones = {
-            "All Systems Operational": "🟢 (Servidor abierto)",
-            "Partial System Outage": "🟡 (Servidor inestable)",
-            "Major System Outage": "🔴 (Servidor cerrado)"
-        }
-        estado_es = traducciones.get(status, f"⚠ ({status})")
-        await interaction.response.send_message(estado_es)
+        r = requests.get("https://discordstatus.com/api/v2/status.json").json()
+        estado = r["status"]["description"]
+        await interaction.response.send_message(f"📡 Estado de Discord: **{estado}**")
     except:
-        await interaction.response.send_message("⚠ (Error al obtener el estado)")
+        await interaction.response.send_message("⚠️ Error al obtener el estado")
 
-@bot.tree.command(name="ip", description="IP del servidor de Minecraft")
+# ======================================================
+# ⛏️ MINECRAFT
+# ======================================================
+@bot.tree.command(name="ip", description="IP del servidor")
 async def ip(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="AetherMC",
-        description="*IP:* `aethermc.space`\n📌 Versión: 1.18 x +1.21 ",
-        color=discord.Color.gold()
+    embed = embed_base(
+        "🌍 AetherMC",
+        "**IP:** `aethermc.space`\n**Versiones:** 1.18 → 1.21"
     )
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="say", description="Envía un mensaje a través del bot")
-async def say(interaction: discord.Interaction, mensaje: str):
-    if interaction.user.guild_permissions.administrator:
-        await interaction.channel.send(mensaje)
-        await interaction.response.send_message("Mensaje enviado.", ephemeral=True)
-    else:
-        await interaction.response.send_message("No tienes permisos.", ephemeral=True)
+@bot.tree.command(name="mcskin", description="Skin de Minecraft")
+async def mcskin(interaction: discord.Interaction, nombre: str):
+    embed = embed_base(f"🧱 Skin de {nombre}", "")
+    embed.set_image(url=f"https://mc-heads.net/body/{nombre}/300")
+    await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="decir_embed", description="Envía un mensaje elegante (Embed)")
-async def decir_embed(interaction: discord.Interaction, titulo: str, descripcion: str, color_hex: str = "FFD700"):
-    if not interaction.user.guild_permissions.administrator:
-        return await interaction.response.send_message("No tienes permisos.", ephemeral=True)
+@bot.tree.command(name="mcstatus", description="Estado del servidor Minecraft")
+async def mcstatus(interaction: discord.Interaction):
+    await interaction.response.defer()
     try:
-        color_int = int(color_hex.replace("#", ""), 16)
-        embed = discord.Embed(title=titulo, description=descripcion.replace("\\n", "\n"), color=color_int)
-        embed.set_footer(text=f"Enviado por: {interaction.user.name}")
-        await interaction.channel.send(embed=embed)
-        await interaction.response.send_message("Embed enviado.", ephemeral=True)
-    except ValueError:
-        await interaction.response.send_message("Error: Formato Hex inválido.", ephemeral=True)
+        r = requests.get("https://api.mcsrvstat.us/2/aethermc.space").json()
+        if r["online"]:
+            embed = embed_base("🎮 AetherMC Online", "")
+            embed.add_field(name="Jugadores", value=f"{r['players']['online']}/{r['players']['max']}")
+            embed.add_field(name="Versión", value=r.get("version", "1.18–1.21"))
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send("🔴 Servidor Offline")
+    except:
+        await interaction.followup.send("⚠️ Error al consultar el servidor")
 
-@bot.tree.command(name="userinfo", description="Muestra información de un usuario")
+@bot.tree.command(name="stats", description="Perfil NameMC")
+async def stats(interaction: discord.Interaction, jugador: str):
+    link = f"https://es.namemc.com/profile/{jugador}"
+    embed = embed_base(
+        f"📊 Perfil de {jugador}",
+        f"[Ver en NameMC]({link})"
+    )
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="logro", description="Logro de Minecraft")
+async def logro(interaction: discord.Interaction, texto: str):
+    texto = texto.replace(" ", "+")
+    icono = random.randint(1, 39)
+    url = f"https://minecraftskinstealer.com/achievement/{icono}/Logro+Obtenido!/{texto}"
+    embed = embed_base("🏆 Logro Desbloqueado", "")
+    embed.set_image(url=url)
+    await interaction.response.send_message(embed=embed)
+
+# ======================================================
+# 🧑 USUARIOS
+# ======================================================
+@bot.tree.command(name="userinfo", description="Información de usuario")
 async def userinfo(interaction: discord.Interaction, miembro: discord.Member = None):
     miembro = miembro or interaction.user
-    embed = discord.Embed(title=f"👤 Info de {miembro.name}", color=discord.Color.blue())
+    embed = embed_base(
+        f"👤 {miembro}",
+        f"🆔 ID: `{miembro.id}`\n🎖 Rol: {miembro.top_role.mention}"
+    )
     if miembro.avatar:
         embed.set_thumbnail(url=miembro.avatar.url)
-    embed.add_field(name="ID", value=miembro.id, inline=True)
-    embed.add_field(name="Se unió", value=miembro.joined_at.strftime("%d/%m/%Y") if miembro.joined_at else "Desconocido", inline=True)
-    embed.add_field(name="Top Rol", value=miembro.top_role.mention, inline=True)
     await interaction.response.send_message(embed=embed)
 
-@bot.tree.command(name="mcskin", description="Muestra la skin de Minecraft de un jugador")
-async def mcskin(interaction: discord.Interaction, nombre: str):
-    embed = discord.Embed(title=f"Skin de {nombre}", color=discord.Color.green())
-    embed.set_image(url=f"mc-heads.net{nombre}/left")
-    await interaction.response.send_message(embed=embed)
+# ======================================================
+# 🎉 DIVERSIÓN
+# ======================================================
+@bot.tree.command(name="datos", description="Lanza un dado")
+async def datos(interaction: discord.Interaction):
+    await interaction.response.send_message(f"🎲 Salió **{random.randint(1,6)}**")
 
-@bot.tree.command(name="sorteo", description="Elige un ganador al azar")
+@bot.tree.command(name="sorteo", description="Sorteo aleatorio")
 async def sorteo(interaction: discord.Interaction, premio: str):
     usuarios = [m for m in interaction.guild.members if not m.bot]
-    if not usuarios:
-        return await interaction.response.send_message("No hay usuarios para elegir.")
     ganador = random.choice(usuarios)
-    await interaction.response.send_message(f"🎉 **SORTEO: {premio}** 🎉\n¡El ganador es {ganador.mention}!")
+    await interaction.response.send_message(f"🎉 **{premio}**\n🏆 Ganador: {ganador.mention}")
 
-@bot.tree.command(name="votar", description="Crea una sugerencia (votos ✅/❌)")
+# ======================================================
+# 🗳️ VOTACIONES
+# ======================================================
+@bot.tree.command(name="votar", description="Sugerencia con votos")
 async def votar(interaction: discord.Interaction, sugerencia: str):
-    embed = discord.Embed(title="💡 Sugerencia", description=sugerencia, color=discord.Color.orange())
+    embed = embed_base("💡 Sugerencia", sugerencia, discord.Color.orange())
     await interaction.response.send_message(embed=embed)
     msg = await interaction.original_response()
     await msg.add_reaction("✅")
     await msg.add_reaction("❌")
 
-@bot.tree.command(name="encuesta", description="Encuesta de 2 opciones")
+@bot.tree.command(name="encuesta", description="Encuesta")
 async def encuesta(interaction: discord.Interaction, pregunta: str, op1: str, op2: str):
-    embed = discord.Embed(title="📊 Encuesta", description=f"**{pregunta}**\n\n1️⃣ {op1}\n2️⃣ {op2}", color=discord.Color.purple())
+    embed = embed_base(
+        "📊 Encuesta",
+        f"**{pregunta}**\n\n1️⃣ {op1}\n2️⃣ {op2}",
+        discord.Color.purple()
+    )
     await interaction.response.send_message(embed=embed)
     msg = await interaction.original_response()
     await msg.add_reaction("1️⃣")
     await msg.add_reaction("2️⃣")
 
-@bot.tree.command(name="limpiar", description="Borra mensajes")
+@bot.tree.command(name="votar_toop", description="Links para votar")
+async def votar_toop(interaction: discord.Interaction):
+    embed = embed_base(
+        "🗳️ Apoya al servidor",
+        "• https://minecraft-mp.com\n• https://topg.org"
+    )
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# ======================================================
+# 🛡️ MODERACIÓN
+# ======================================================
+@bot.tree.command(name="say", description="Hablar como el bot")
+async def say(interaction: discord.Interaction, mensaje: str):
+    if interaction.user.guild_permissions.administrator:
+        await interaction.channel.send(mensaje)
+        await interaction.response.send_message("✅ Enviado", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Sin permisos", ephemeral=True)
+
+@bot.tree.command(name="decir_embed", description="Embed avanzado")
+async def decir_embed(interaction: discord.Interaction, titulo: str, descripcion: str, color_hex: str = "FFD700"):
+    if not interaction.user.guild_permissions.administrator:
+        return await interaction.response.send_message("❌ Sin permisos", ephemeral=True)
+    try:
+        color = int(color_hex.replace("#",""),16)
+        embed = discord.Embed(
+            title=titulo,
+            description=descripcion.replace("\\n","\n"),
+            color=color
+        )
+        embed.set_footer(text=f"Enviado por {interaction.user}")
+        await interaction.channel.send(embed=embed)
+        await interaction.response.send_message("✅ Embed enviado", ephemeral=True)
+    except:
+        await interaction.response.send_message("❌ Color inválido", ephemeral=True)
+
+@bot.tree.command(name="limpiar", description="Borrar mensajes")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def limpiar(interaction: discord.Interaction, cantidad: int):
     await interaction.response.defer(ephemeral=True)
-    deleted = await interaction.channel.purge(limit=cantidad)
-    await interaction.followup.send(f"✅ Borrados {len(deleted)} mensajes.", ephemeral=True)
+    borrados = await interaction.channel.purge(limit=cantidad)
+    await interaction.followup.send(f"🧹 {len(borrados)} mensajes borrados", ephemeral=True)
 
-# --- NUEVOS COMANDOS ACTUALIZADOS ---
-
-@bot.tree.command(name="reportar", description="Reporta a un jugador por mal comportamiento")
+@bot.tree.command(name="reportar", description="Reportar jugador")
 async def reportar(interaction: discord.Interaction, jugador: str, motivo: str):
-    # ID proporcionado para el canal de reportes
-    ID_CANAL_REPORTES = 137275334319747802 # Nota: He usado el ID de canal asociado a tu servidor
+    ID_CANAL_REPORTES = 137275334319747802
     canal = bot.get_channel(ID_CANAL_REPORTES)
-    
-    embed = discord.Embed(title="🚩 Nuevo Reporte de Jugador", color=discord.Color.red())
-    embed.add_field(name="Usuario Reportado:", value=f"`{jugador}`", inline=True)
-    embed.add_field(name="Enviado por:", value=interaction.user.mention, inline=True)
-    embed.add_field(name="Motivo:", value=motivo, inline=False)
-    embed.set_footer(text=f"ID del informante: {interaction.user.id}")
-    embed.set_timestamp()
-    
+    embed = embed_base(
+        "🚩 Nuevo Reporte",
+        f"👤 Jugador: `{jugador}`\n📝 Motivo: {motivo}\n🙋 Reportado por: {interaction.user.mention}",
+        discord.Color.red()
+    )
     if canal:
         await canal.send(embed=embed)
-        await interaction.response.send_message("✅ Tu reporte ha sido recibido por el Staff.", ephemeral=True)
+        await interaction.response.send_message("✅ Reporte enviado", ephemeral=True)
     else:
-        # Si el bot no encuentra el canal por ID, lo intenta enviar al canal actual como respaldo
-        await interaction.response.send_message("⚠️ Error: No se encontró el canal de reportes configurado.", ephemeral=True)
+        await interaction.response.send_message("❌ Canal no encontrado", ephemeral=True)
 
-@bot.tree.command(name="datos", description="Lanza un dado de 6 caras")
-async def datos(interaction: discord.Interaction):
-    numero = random.randint(1, 6)
-    await interaction.response.send_message(f"🎲 ¡Lanzaste los dados y salió **{numero}**!")
+# ======================================================
+# 🎫 SISTEMA DE TICKETS (BOTONES)
+# ======================================================
+class TicketView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
-@bot.tree.command(name="mcstatus", description="Muestra información en tiempo real de AetherMC")
-async def mcstatus(interaction: discord.Interaction):
-    await interaction.response.defer() # Usamos defer porque la API puede tardar
-    try:
-        response = requests.get("api.mcsrvstat.us").json()
-        if response["online"]:
-            jugadores = response["players"]["online"]
-            maximo = response["players"]["max"]
-            version = response.get("version", "1.18 - 1.21")
-            
-            embed = discord.Embed(title="🎮 Estado de AetherMC", color=discord.Color.green())
-            embed.add_field(name="Estado", value="🟢 Online", inline=True)
-            embed.add_field(name="Jugadores", value=f"`{jugadores}/{maximo}`", inline=True)
-            embed.add_field(name="Versión", value=f"`{version}`", inline=False)
-            embed.set_thumbnail(url="api.mcsrvstat.us")
-            
-            await interaction.followup.send(embed=embed)
-        else:
-            await interaction.followup.send("❌ El servidor de Minecraft actualmente está offline.")
-    except Exception as e:
-        await interaction.followup.send(f"⚠️ Error al conectar con la API de Minecraft.")
+    @discord.ui.button(label="🎫 Abrir Ticket", style=discord.ButtonStyle.green)
+    async def abrir(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild = interaction.guild
+        categoria = discord.utils.get(guild.categories, name="🎫 TICKETS")
+        if not categoria:
+            categoria = await guild.create_category("🎫 TICKETS")
 
-@bot.tree.command(name="stats", description="Busca el perfil de NameMC de un usuario")
-async def stats(interaction: discord.Interaction, jugador: str):
-    link = f"es.namemc.com{jugador}"
-    embed = discord.Embed(title=f"📊 Perfil de {jugador}", description=f"Haz clic [aquí]({link}) para ver skins y nombres anteriores.", color=discord.Color.blue())
-    await interaction.response.send_message(embed=embed)
+        canal = await guild.create_text_channel(
+            name=f"ticket-{interaction.user.name}",
+            category=categoria
+        )
+        await canal.set_permissions(interaction.user, read_messages=True, send_messages=True)
+        await canal.set_permissions(guild.default_role, read_messages=False)
 
-@bot.tree.command(name="votar_toop", description="Links para votar y apoyar al servidor")
-async def votar_toop(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🗳️ ¡Apoya a AetherMC Votando!", 
-        description="Votar nos ayuda a crecer y te da recompensas in-game.",
-        color=discord.Color.gold()
+        await canal.send(f"🎫 Ticket creado por {interaction.user.mention}")
+        await interaction.response.send_message("✅ Ticket creado", ephemeral=True)
+
+@bot.tree.command(name="ticket", description="Abrir panel de tickets")
+async def ticket(interaction: discord.Interaction):
+    embed = embed_base(
+        "🎫 Soporte AetherMC",
+        "Pulsa el botón para crear un ticket con el staff"
     )
-    embed.add_field(name="Links de Voto", value="• [Vota en Minecraft-MP](minecraft-mp.com)\n• [Vota en TopG](topg.org)", inline=False)
-    embed.add_field(name="🎁 Recompensas", value="¡Obtén llaves de crates y dinero!", inline=False)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, view=TicketView())
 
-@bot.tree.command(name="logro", description="Genera un logro de Minecraft personalizado")
-async def logro(interaction: discord.Interaction, texto: str):
-    # Genera una imagen de logro usando una API externa
-    texto_url = texto.replace(" ", "+")
-    icono = random.randint(1, 39) # Iconos aleatorios de Minecraft
-    img_url = f"minecraftskinstealer.com{icono}/¡Logro+Obtenido!/{texto_url}"
-    
-    embed = discord.Embed(color=discord.Color.dark_green())
-    embed.set_image(url=img_url)
-    await interaction.response.send_message(embed=embed)
-
-# --- EJECUCIÓN ---
+# ======================================================
+# ▶️ EJECUCIÓN
+# ======================================================
 if __name__ == "__main__":
-    # Iniciar Flask en un hilo separado
-    t = threading.Thread(target=run_flask)
-    t.start()
-    # Iniciar el Bot de Discord
+    threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
