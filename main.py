@@ -10,6 +10,7 @@ import random
 import datetime
 import asyncio
 import time
+
 START_TIME = time.time()
 
 # ======================================================
@@ -47,22 +48,69 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ======================================================
+# 🎧 FUNCION PARA UNIR AL CANAL DE VOZ + RADIO 24/7
+# ======================================================
+RADIO_URL = "http://stream.freemusicradio.nl:8100/stream"  # <-- Reemplaza con la URL de tu radio
+
+async def unir_al_voice():
+    guild = bot.get_guild(GUILD_ID)
+    if not guild:
+        print("❌ No se pudo encontrar el servidor")
+        return
+
+    canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
+    if not canal:
+        print("❌ No se encontró el canal de voz")
+        return
+
+    vc = guild.voice_client
+    if not vc:
+        vc = await canal.connect()
+        print(f"🎧 Bot conectado al canal {canal.name}")
+
+        # Reproducir radio automáticamente
+        vc.play(
+            discord.FFmpegPCMAudio(
+                RADIO_URL,
+                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            )
+        )
+        print("🎵 Radio 24/7 iniciada")
+    else:
+        print("🎧 Bot ya estaba conectado a un canal de voz")
+        # Si ya estaba conectado, puedes hacer que inicie radio solo si no está sonando
+        if not vc.is_playing():
+            vc.play(
+                discord.FFmpegPCMAudio(
+                    RADIO_URL,
+                    options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+                )
+            )
+            print("🎵 Radio 24/7 iniciada")
+
+# ======================================================
 # 🚀 BOT READY
 # ======================================================
 @bot.event
 async def on_ready():
-    print(f"🟢 {bot.user} conectado correctamente")
+    print(f"🟢 Bot conectado como {bot.user}")
+
+    # Sincronizar comandos
     try:
         if GUILD_ID:
-            guild = discord.Object(id=GUILD_ID)
-            bot.tree.copy_global_to(guild=guild)
-            synced = await bot.tree.sync(guild=guild)
-            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
+            guild_obj = discord.Object(id=GUILD_ID)
+            bot.tree.copy_global_to(guild=guild_obj)
+            synced = await bot.tree.sync(guild=guild_obj)
+            print(f"✅ {len(synced)} comandos sincronizados")
         else:
             synced = await bot.tree.sync()
             print(f"🌍 {len(synced)} comandos globales sincronizados")
     except Exception as e:
         print(f"❌ Error al sincronizar comandos: {e}")
+
+    # Conectar al canal de voz
+    await unir_al_voice()
+
 
 # ======================================================
 # 🎨 FUNCIÓN BASE PARA EMBEDS
@@ -323,7 +371,7 @@ async def reportar(interaction: discord.Interaction, jugador: str, motivo: str):
         await interaction.response.send_message("❌ Canal no encontrado", ephemeral=True)
 
 # ======================================================
-# 🎫 SISTEMA DE TICKETS (BOTONES)
+# 🎫 SISTEMA DE TICKETS (BOTONES) MEJORADO
 # ======================================================
 class TicketView(discord.ui.View):
     def __init__(self):
@@ -332,136 +380,39 @@ class TicketView(discord.ui.View):
     @discord.ui.button(label="🎫 Abrir Ticket", style=discord.ButtonStyle.green)
     async def abrir(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
-        categoria = discord.utils.get(guild.categories, name="🎫 TICKETS")
-        if not categoria:
-            categoria = await guild.create_category("🎫 TICKETS")
 
+        # Nombre de la categoría donde se crearán los tickets
+        categoria_nombre = "Soporte"  # <-- Cambia esto si quieres otro nombre
+        categoria = discord.utils.get(guild.categories, name=categoria_nombre)
+        if not categoria:
+            categoria = await guild.create_category(categoria_nombre)
+
+        # Nombre del canal de ticket
+        canal_nombre = f"soporte-{interaction.user.name}"  # <-- Cambia prefijo si quieres
         canal = await guild.create_text_channel(
-            name=f"ticket-{interaction.user.name}",
+            name=canal_nombre,
             category=categoria
         )
+
+        # Permisos para el usuario que creó el ticket
         await canal.set_permissions(interaction.user, read_messages=True, send_messages=True)
+        # El resto de usuarios no pueden ver
         await canal.set_permissions(guild.default_role, read_messages=False)
 
-        await canal.send(f"🎫 Ticket creado por {interaction.user.mention}")
+        # Permisos para Staff
+        staff = discord.utils.get(guild.roles, name="Staff")  # <-- Cambia nombre del rol si es distinto
+        if staff:
+            await canal.set_permissions(staff, read_messages=True, send_messages=True)
+
+        # Mensaje inicial dentro del ticket
+        await canal.send(
+            f"🎫 Ticket creado por {interaction.user.mention}\n"
+            "Escribe tu problema o consulta y espera que el staff te atienda."
+        )
+
+        # Respuesta efímera al usuario
         await interaction.response.send_message("✅ Ticket creado", ephemeral=True)
 
-@bot.tree.command(name="ticket", description="Abrir panel de tickets")
-async def ticket(interaction: discord.Interaction):
-    embed = embed_base(
-        "🎫 Soporte AetherMC",
-        "Pulsa el botón para crear un ticket con el staff"
-    )
-    await interaction.response.send_message(embed=embed, view=TicketView())
-
-@bot.tree.command(name="setup_ticket", description="Configura el panel de tickets")
-@discord.app_commands.checks.has_permissions(administrator=True)
-async def setup_ticket(interaction: discord.Interaction):
-
-    embed = discord.Embed(
-        title="🎫 Sistema de Tickets",
-        description=(
-            "Bienvenido al sistema de soporte de **AetherMC**\n\n"
-            "Pulsa el botón de abajo para crear un ticket y "
-            "el staff te atenderá lo antes posible."
-        ),
-        color=discord.Color.green()
-    )
-
-    await interaction.response.send_message(
-        embed=embed,
-        view=TicketView()
-    )
-
-# ======================================================
-# ⚙️ CONFIGURACIÓN DEL BOT
-# ======================================================
-import os
-from discord.ext import commands
-import discord
-
-DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
-GUILD_ID = int(os.environ.get("GUILD_ID")) if os.environ.get("GUILD_ID") else None
-VOICE_CHANNEL_ID = int(os.environ.get("VOICE_CHANNEL_ID")) if os.environ.get("VOICE_CHANNEL_ID") else None
-
-intents = discord.Intents.default()
-intents.members = True
-intents.message_content = True
-
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-
-# ======================================================
-# 🚀 BOT READY + RADIO 24/7
-# ======================================================
-@bot.event
-async def on_ready():
-    print(f"🟢 Bot conectado como {bot.user}")
-
-    @bot.event
-async def on_ready():
-    print(f"🟢 Bot conectado como {bot.user}")
-
-    # Sincronizar comandos (opcional)
-    try:
-        if GUILD_ID:
-            guild = discord.Object(id=GUILD_ID)
-            bot.tree.copy_global_to(guild=guild)
-            synced = await bot.tree.sync(guild=guild)
-            print(f"✅ {len(synced)} comandos sincronizados")
-        else:
-            synced = await bot.tree.sync()
-            print(f"🌍 {len(synced)} comandos globales sincronizados")
-    except Exception as e:
-        print(f"❌ Error al sincronizar comandos: {e}")
-
-    # Conectar la radio automáticamente
-    guild_obj = bot.get_guild(GUILD_ID)
-    if guild_obj:
-        await conectar_radio(guild_obj, RADIO_URL)
-
-
-    # Conectar radio automáticamente
-    guild_obj = bot.get_guild(GUILD_ID)
-    if guild_obj:
-        await conectar_radio(guild_obj, RADIO_URL)
-async def conectar_radio(guild, url):
-    try:
-        vc = guild.voice_client  # Verifica si ya está conectado
-        if not vc:
-            canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
-            if not canal:
-                print("❌ No se encontró el canal de voz")
-                return
-            vc = await canal.connect()
-
-        # Función interna para reproducir
-        def play_stream():
-            try:
-                vc.play(
-                    discord.FFmpegPCMAudio(
-                        url,
-                        options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-                    ),
-                    after=lambda e: asyncio.run_coroutine_threadsafe(reconnect(vc, url), bot.loop)
-                )
-            except Exception as e:
-                print(f"❌ Error al reproducir radio: {e}")
-
-        # Reconexión automática
-        async def reconnect(vc, url):
-            await asyncio.sleep(3)
-            if not vc.is_playing():
-                print("🔄 Reconectando radio...")
-                play_stream()
-
-        # Reproducir la radio
-        if not vc.is_playing():
-            play_stream()
-            print("🎶 Radio 24/7 activa")
-
-    except Exception as e:
-        print(f"❌ Error en conectar_radio: {e}")
 
 
     # =========================
@@ -484,15 +435,7 @@ async def conectar_radio(guild, url):
     except Exception as e:
         print(f"❌ Error al sincronizar comandos: {e}")
 
-    # =========================
-    # Conectar radio automáticamente
-    # =========================
-    if VOICE_CHANNEL_ID and GUILD_ID:
-        guild_obj = bot.get_guild(GUILD_ID)
-        if guild_obj:
-            await conectar_radio(guild_obj, RADIO_URL)
-
-
+  
 # =========================
 # COMANDOS UTILIDAD
 # =========================
@@ -540,70 +483,96 @@ async def avatar(interaction: discord.Interaction, usuario: discord.Member = Non
     await interaction.response.send_message(embed=embed)
 
 
-# =========================
-# COMANDOS DE RADIO 24/7
-# =========================
+# ======================================================
+# 🎵 COMANDOS DE RADIO 24/7
+# ======================================================
 
-# /radio → Estado
+
+# Función para conectar al canal de voz y reproducir radio
+async def conectar_radio(guild, url=RADIO_URL):
+    canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
+    if not canal:
+        print("❌ Canal de voz no encontrado")
+        return
+
+    vc = guild.voice_client
+    if not vc:
+        vc = await canal.connect()
+    
+    if not vc.is_playing():
+        vc.play(
+            discord.FFmpegPCMAudio(
+                url,
+                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+            )
+        )
+        print(f"🎶 Reproduciendo radio en {canal.name}")
+
+# /radio → estado de la radio
 @bot.tree.command(name="radio", description="Muestra el estado de la radio")
 async def radio(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
-    if vc and vc.is_playing():
+    if not vc or not vc.is_connected():
+        await interaction.response.send_message("❌ El bot no está conectado a un canal de voz.")
+        return
+
+    if vc.is_playing():
         await interaction.response.send_message("🎶 La radio está sonando actualmente.")
     else:
         await interaction.response.send_message("❌ La radio no está activa.")
 
-# /radio_detener → Detener
+# /radio_detener → detener la radio
 @bot.tree.command(name="radio_detener", description="Detiene la radio")
 async def radio_detener(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
-    if vc and vc.is_playing():
+    if not vc or not vc.is_connected():
+        await interaction.response.send_message("❌ El bot no está conectado a un canal de voz.")
+        return
+
+    if vc.is_playing():
         vc.stop()
         await interaction.response.send_message("⏹️ Radio detenida.")
     else:
         await interaction.response.send_message("❌ La radio no está activa.")
 
+
 # /radio_cambiar → Cambiar URL
-@bot.tree.command(name="radio_cambiar", description="Cambia la emisora de radio")
-@app_commands.describe(nueva_url="URL de la nueva emisora")
-async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
+@bot.tree.command(name="radio_cambiar", description="Cambia la emisora de radio a una predeterminada")
+async def radio_cambiar(interaction: discord.Interaction):
+    # Nueva URL de radio que quieres usar
+    nueva_url = "http://stream.freemusicradio.nl:8100/stream"  # <-- Cambia aquí si quieres otra emisora
+
     vc = interaction.guild.voice_client
     if not vc:
         canal = discord.utils.get(interaction.guild.voice_channels, id=VOICE_CHANNEL_ID)
         if not canal:
-            return await interaction.response.send_message("❌ Canal de voz no encontrado")
+            await interaction.response.send_message("❌ Canal de voz no encontrado")
+            return
         vc = await canal.connect()
 
-    vc.stop()
+    if vc.is_playing():
+        vc.stop()
+    
     vc.play(
         discord.FFmpegPCMAudio(
             nueva_url,
             options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
         )
     )
-    await interaction.response.send_message(f"🔄 Radio cambiada a: {nueva_url}")
+    global RADIO_URL
+    RADIO_URL = nueva_url
+    await interaction.response.send_message(f"🔄 Radio cambiada a la emisora: {nueva_url}")
+
 
 
 # ======================================================
 # ▶️ EJECUCIÓN
 # ======================================================
 if __name__ == "__main__":
-    import threading
-    from flask import Flask
-
-    # Iniciar servidor web (Keep Alive)
-    app = Flask(__name__)
-    @app.route("/")
-    def home():
-        return "✅ Bot activo"
-
-    def run_flask():
-        import os
-        port = int(os.environ.get("PORT", 8000))
-        app.run(host="0.0.0.0", port=port)
-
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
+
 
 
 
