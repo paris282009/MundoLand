@@ -28,9 +28,17 @@ def run_flask():
 # ======================================================
 # ⚙️ CONFIGURACIÓN DEL BOT
 # ======================================================
-load_dotenv()
+
+# Si usas Render, NO necesitas load_dotenv()
+# load_dotenv()  <-- comentar o borrar
+
+# Leer variables de entorno
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+if not DISCORD_TOKEN:
+    raise ValueError("❌ DISCORD_TOKEN no definido en las variables de entorno de Render")
+
 GUILD_ID = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") else None
+VOICE_CHANNEL_ID = int(os.getenv("VOICE_CHANNEL_ID")) if os.getenv("VOICE_CHANNEL_ID") else None
 
 intents = discord.Intents.default()
 intents.members = True
@@ -365,54 +373,36 @@ async def setup_ticket(interaction: discord.Interaction):
         view=TicketView()
     )
 
-# =========================================
-# CONFIGURACIÓN DE RADIO 24/7
-# =========================================
-VOICE_CHANNEL_ID = 1386099865926504568
-RADIO_URL = "http://stream.radioparadise.com/mp3-128"  # Radio estable MP3
+# ======================================================
+# ⚙️ CONFIGURACIÓN DEL BOT
+# ======================================================
+import os
+from discord.ext import commands
+import discord
 
-async def conectar_radio(guild, url):
-    try:
-        vc = guild.voice_client
-        if not vc:
-            canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
-            if not canal:
-                print("❌ No se encontró el canal de voz")
-                return
-            vc = await canal.connect()
+DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
+GUILD_ID = int(os.environ.get("GUILD_ID")) if os.environ.get("GUILD_ID") else None
+VOICE_CHANNEL_ID = int(os.environ.get("VOICE_CHANNEL_ID")) if os.environ.get("VOICE_CHANNEL_ID") else None
 
-        # Reproducir radio con reconexión automática
-        if not vc.is_playing():
-            def play_stream():
-                try:
-                    vc.play(
-                        discord.FFmpegPCMAudio(
-                            url,
-                            options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-                        ),
-                        after=lambda e: asyncio.run_coroutine_threadsafe(reconnect(vc, url), bot.loop)
-                    )
-                except Exception as e:
-                    print(f"❌ Error al reproducir radio: {e}")
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
 
-            async def reconnect(vc, url):
-                if not vc.is_playing():
-                    print("🔄 Reconectando radio...")
-                    await asyncio.sleep(3)
-                    play_stream()
-
-            play_stream()
-            print("🎶 Radio 24/7 activa")
-
-    except Exception as e:
-        print(f"❌ Error en conectar_radio: {e}")
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 
+# ======================================================
+# 🚀 BOT READY + RADIO 24/7
+# ======================================================
 @bot.event
 async def on_ready():
     print(f"🟢 Bot conectado como {bot.user}")
 
-    # Sincronización de comandos
+    @bot.event
+async def on_ready():
+    print(f"🟢 Bot conectado como {bot.user}")
+
+    # Sincronizar comandos (opcional)
     try:
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)
@@ -425,16 +415,87 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Error al sincronizar comandos: {e}")
 
-    # Conectar radio automáticamente
+    # Conectar la radio automáticamente
     guild_obj = bot.get_guild(GUILD_ID)
     if guild_obj:
         await conectar_radio(guild_obj, RADIO_URL)
 
 
-# =========================
-# COMANDOS UTILIDAD + RADIO
-# =========================
+    # Conectar radio automáticamente
+    guild_obj = bot.get_guild(GUILD_ID)
+    if guild_obj:
+        await conectar_radio(guild_obj, RADIO_URL)
+async def conectar_radio(guild, url):
+    try:
+        vc = guild.voice_client  # Verifica si ya está conectado
+        if not vc:
+            canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
+            if not canal:
+                print("❌ No se encontró el canal de voz")
+                return
+            vc = await canal.connect()
 
+        # Función interna para reproducir
+        def play_stream():
+            try:
+                vc.play(
+                    discord.FFmpegPCMAudio(
+                        url,
+                        options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
+                    ),
+                    after=lambda e: asyncio.run_coroutine_threadsafe(reconnect(vc, url), bot.loop)
+                )
+            except Exception as e:
+                print(f"❌ Error al reproducir radio: {e}")
+
+        # Reconexión automática
+        async def reconnect(vc, url):
+            await asyncio.sleep(3)
+            if not vc.is_playing():
+                print("🔄 Reconectando radio...")
+                play_stream()
+
+        # Reproducir la radio
+        if not vc.is_playing():
+            play_stream()
+            print("🎶 Radio 24/7 activa")
+
+    except Exception as e:
+        print(f"❌ Error en conectar_radio: {e}")
+
+
+    # =========================
+    # Sincronización de comandos
+    # =========================
+    try:
+        if GUILD_ID:
+            guild_obj = bot.get_guild(GUILD_ID)
+            if not guild_obj:
+                # Si el bot aún no tiene cache del guild
+                guild_obj = await bot.fetch_guild(GUILD_ID)
+
+            # Copiar comandos globales al guild
+            bot.tree.copy_global_to(guild=guild_obj)
+            synced = await bot.tree.sync(guild=guild_obj)
+            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
+        else:
+            synced = await bot.tree.sync()
+            print(f"🌍 {len(synced)} comandos globales sincronizados")
+    except Exception as e:
+        print(f"❌ Error al sincronizar comandos: {e}")
+
+    # =========================
+    # Conectar radio automáticamente
+    # =========================
+    if VOICE_CHANNEL_ID and GUILD_ID:
+        guild_obj = bot.get_guild(GUILD_ID)
+        if guild_obj:
+            await conectar_radio(guild_obj, RADIO_URL)
+
+
+# =========================
+# COMANDOS UTILIDAD
+# =========================
 
 # /ping → Muestra la latencia del bot
 @bot.tree.command(name="ping", description="Muestra la latencia del bot")
@@ -443,14 +504,14 @@ async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"🏓 Pong! Latencia: **{latency} ms**")
 
 # /uptime → Muestra cuánto tiempo lleva encendido el bot
-@bot.tree.command(name="uptime", description="Tiempo que lleva encendido el bot")
+@bot.tree.command(name="uptime", description="Muestra el tiempo que lleva encendido el bot")
 async def uptime(interaction: discord.Interaction):
-    seconds = int(time.time() - START_TIME)
-    uptime_str = str(datetime.timedelta(seconds=seconds))
-    await interaction.response.send_message(f"⏱️ Uptime del bot: **{uptime_str}**")
+    segundos = int(time.time() - START_TIME)
+    tiempo_str = str(datetime.timedelta(seconds=segundos))
+    await interaction.response.send_message(f"⏱️ Uptime del bot: **{tiempo_str}**")
 
 # /serverinfo → Información del servidor
-@bot.tree.command(name="serverinfo", description="Información del servidor")
+@bot.tree.command(name="serverinfo", description="Muestra información del servidor")
 async def serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
     embed = discord.Embed(
@@ -468,20 +529,22 @@ async def serverinfo(interaction: discord.Interaction):
 
 # /avatar → Muestra el avatar de un usuario o del propio
 @bot.tree.command(name="avatar", description="Muestra el avatar de un usuario")
+@app_commands.describe(usuario="Usuario del que quieres ver el avatar")
 async def avatar(interaction: discord.Interaction, usuario: discord.Member = None):
     usuario = usuario or interaction.user
     embed = discord.Embed(
         title=f"🖼️ Avatar de {usuario.name}",
         color=discord.Color.blue()
     )
-    embed.set_image(url=usuario.avatar.url)
+    embed.set_image(url=usuario.display_avatar.url)
     await interaction.response.send_message(embed=embed)
+
 
 # =========================
 # COMANDOS DE RADIO 24/7
 # =========================
 
-# /radio - Estado
+# /radio → Estado
 @bot.tree.command(name="radio", description="Muestra el estado de la radio")
 async def radio(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
@@ -490,7 +553,7 @@ async def radio(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ La radio no está activa.")
 
-# /radio_detener - Detener
+# /radio_detener → Detener
 @bot.tree.command(name="radio_detener", description="Detiene la radio")
 async def radio_detener(interaction: discord.Interaction):
     vc = interaction.guild.voice_client
@@ -500,8 +563,9 @@ async def radio_detener(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ La radio no está activa.")
 
-# /radio_cambiar - Cambiar URL
+# /radio_cambiar → Cambiar URL
 @bot.tree.command(name="radio_cambiar", description="Cambia la emisora de radio")
+@app_commands.describe(nueva_url="URL de la nueva emisora")
 async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
     vc = interaction.guild.voice_client
     if not vc:
@@ -524,7 +588,23 @@ async def radio_cambiar(interaction: discord.Interaction, nueva_url: str):
 # ▶️ EJECUCIÓN
 # ======================================================
 if __name__ == "__main__":
+    import threading
+    from flask import Flask
+
+    # Iniciar servidor web (Keep Alive)
+    app = Flask(__name__)
+    @app.route("/")
+    def home():
+        return "✅ Bot activo"
+
+    def run_flask():
+        import os
+        port = int(os.environ.get("PORT", 8000))
+        app.run(host="0.0.0.0", port=port)
+
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
+
 
 
