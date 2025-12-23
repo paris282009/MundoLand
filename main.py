@@ -415,6 +415,10 @@ class TicketView(discord.ui.View):
 
 
 
+    @bot.event
+async def on_ready():
+    print(f"🟢 Bot conectado como {bot.user}")
+
     # =========================
     # Sincronización de comandos
     # =========================
@@ -435,6 +439,8 @@ class TicketView(discord.ui.View):
     except Exception as e:
         print(f"❌ Error al sincronizar comandos: {e}")
 
+    # Conectar al canal de voz
+    await unir_al_voice()
   
 # =========================
 # COMANDOS UTILIDAD
@@ -571,6 +577,7 @@ async def radio_cambiar(interaction: discord.Interaction):
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
