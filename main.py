@@ -167,8 +167,8 @@ async def estado(interaction: discord.Interaction):
 @bot.tree.command(name="ip", description="IP del servidor")
 async def ip(interaction: discord.Interaction):
     embed = embed_base(
-        "🌍 AetherMC",
-        "**IP:** `aethermc.space`\n**Versiones:** 1.18 → 1.21"
+        "🌍 Mutation's Network",
+        "**IP:** `mutations.fun`\n**Versiones:** 1.18 → 1.21"
     )
     await interaction.response.send_message(embed=embed)
 
@@ -187,7 +187,7 @@ async def mcstatus(interaction: discord.Interaction):
         ephemeral=False
     )
 
-    ip = "aethermc.space"
+    ip = "mutations.fun"
     puerto_bedrock = 19132
 
     try:
@@ -577,6 +577,7 @@ async def radio_cambiar(interaction: discord.Interaction):
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
