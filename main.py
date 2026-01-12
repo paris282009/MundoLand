@@ -202,7 +202,7 @@ async def mcstatus(interaction: discord.Interaction):
         ).json()
 
         embed = discord.Embed(
-            title="🎮 Estado del Servidor AetherMC",
+            title="🎮 Estado del Servidor Mutation's Network",
             description=f"🌍 **IP:** `{ip}`",
             color=discord.Color.green()
         )
@@ -577,6 +577,7 @@ async def radio_cambiar(interaction: discord.Interaction):
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
