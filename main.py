@@ -20,7 +20,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "✅ Bot activo – AetherMC"
+    return "✅ Bot activo – Mutation's Network"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8000))
@@ -39,7 +39,6 @@ if not DISCORD_TOKEN:
     raise ValueError("❌ DISCORD_TOKEN no definido en las variables de entorno de Render")
 
 GUILD_ID = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") else None
-VOICE_CHANNEL_ID = int(os.getenv("VOICE_CHANNEL_ID")) if os.getenv("VOICE_CHANNEL_ID") else None
 
 intents = discord.Intents.default()
 intents.members = True
@@ -47,46 +46,6 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ======================================================
-# 🎧 FUNCION PARA UNIR AL CANAL DE VOZ + RADIO 24/7
-# ======================================================
-RADIO_URL = "http://stream.freemusicradio.nl:8100/stream"  # <-- Reemplaza con la URL de tu radio
-
-async def unir_al_voice():
-    guild = bot.get_guild(GUILD_ID)
-    if not guild:
-        print("❌ No se pudo encontrar el servidor")
-        return
-
-    canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
-    if not canal:
-        print("❌ No se encontró el canal de voz")
-        return
-
-    vc = guild.voice_client
-    if not vc:
-        vc = await canal.connect()
-        print(f"🎧 Bot conectado al canal {canal.name}")
-
-        # Reproducir radio automáticamente
-        vc.play(
-            discord.FFmpegPCMAudio(
-                RADIO_URL,
-                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-            )
-        )
-        print("🎵 Radio 24/7 iniciada")
-    else:
-        print("🎧 Bot ya estaba conectado a un canal de voz")
-        # Si ya estaba conectado, puedes hacer que inicie radio solo si no está sonando
-        if not vc.is_playing():
-            vc.play(
-                discord.FFmpegPCMAudio(
-                    RADIO_URL,
-                    options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-                )
-            )
-            print("🎵 Radio 24/7 iniciada")
 
 # ======================================================
 # 🚀 BOT READY
@@ -122,9 +81,20 @@ def embed_base(titulo, descripcion, color=discord.Color.gold()):
         color=color,
         timestamp=datetime.datetime.utcnow()
     )
-    embed.set_footer(text="AetherMC • Sistema Oficial")
+    embed.set_footer(text="Mutation's Network• Sistema Oficial")
     return embed
 
+@bot.tree.command(name="embed_say", description="Envía un mensaje con texto y un embed")
+async def embed_say(interaction: discord.Interaction, texto: str, titulo: str, descripcion: str):
+    # Usamos tu función base para generar el embed
+    mi_embed = embed_base(titulo, descripcion)
+    
+    # Enviamos el 'content' (texto plano) y el 'embed' juntos
+    await interaction.response.send_message(
+        content=texto, 
+        embed=mi_embed
+    )
+    
 # ======================================================
 # 🔗 REDES SOCIALES
 # ======================================================
@@ -490,93 +460,12 @@ async def avatar(interaction: discord.Interaction, usuario: discord.Member = Non
 
 
 # ======================================================
-# 🎵 COMANDOS DE RADIO 24/7
-# ======================================================
-
-
-# Función para conectar al canal de voz y reproducir radio
-async def conectar_radio(guild, url=RADIO_URL):
-    canal = discord.utils.get(guild.voice_channels, id=VOICE_CHANNEL_ID)
-    if not canal:
-        print("❌ Canal de voz no encontrado")
-        return
-
-    vc = guild.voice_client
-    if not vc:
-        vc = await canal.connect()
-    
-    if not vc.is_playing():
-        vc.play(
-            discord.FFmpegPCMAudio(
-                url,
-                options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-            )
-        )
-        print(f"🎶 Reproduciendo radio en {canal.name}")
-
-# /radio → estado de la radio
-@bot.tree.command(name="radio", description="Muestra el estado de la radio")
-async def radio(interaction: discord.Interaction):
-    vc = interaction.guild.voice_client
-    if not vc or not vc.is_connected():
-        await interaction.response.send_message("❌ El bot no está conectado a un canal de voz.")
-        return
-
-    if vc.is_playing():
-        await interaction.response.send_message("🎶 La radio está sonando actualmente.")
-    else:
-        await interaction.response.send_message("❌ La radio no está activa.")
-
-# /radio_detener → detener la radio
-@bot.tree.command(name="radio_detener", description="Detiene la radio")
-async def radio_detener(interaction: discord.Interaction):
-    vc = interaction.guild.voice_client
-    if not vc or not vc.is_connected():
-        await interaction.response.send_message("❌ El bot no está conectado a un canal de voz.")
-        return
-
-    if vc.is_playing():
-        vc.stop()
-        await interaction.response.send_message("⏹️ Radio detenida.")
-    else:
-        await interaction.response.send_message("❌ La radio no está activa.")
-
-
-# /radio_cambiar → Cambiar URL
-@bot.tree.command(name="radio_cambiar", description="Cambia la emisora de radio a una predeterminada")
-async def radio_cambiar(interaction: discord.Interaction):
-    # Nueva URL de radio que quieres usar
-    nueva_url = "http://stream.freemusicradio.nl:8100/stream"  # <-- Cambia aquí si quieres otra emisora
-
-    vc = interaction.guild.voice_client
-    if not vc:
-        canal = discord.utils.get(interaction.guild.voice_channels, id=VOICE_CHANNEL_ID)
-        if not canal:
-            await interaction.response.send_message("❌ Canal de voz no encontrado")
-            return
-        vc = await canal.connect()
-
-    if vc.is_playing():
-        vc.stop()
-    
-    vc.play(
-        discord.FFmpegPCMAudio(
-            nueva_url,
-            options="-vn -reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5"
-        )
-    )
-    global RADIO_URL
-    RADIO_URL = nueva_url
-    await interaction.response.send_message(f"🔄 Radio cambiada a la emisora: {nueva_url}")
-
-
-
-# ======================================================
 # ▶️ EJECUCIÓN
 # ======================================================
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
