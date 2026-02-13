@@ -67,9 +67,6 @@ async def on_ready():
     except Exception as e:
         print(f"❌ Error al sincronizar comandos: {e}")
 
-    # Conectar al canal de voz
-    await unir_al_voice()
-
 
 # ======================================================
 # 🎨 FUNCIÓN BASE PARA EMBEDS
@@ -136,7 +133,7 @@ async def youtube(interaction: discord.Interaction):
 @bot.tree.command(name="tienda", description="Tienda oficial")
 async def tienda(interaction: discord.Interaction):
     await interaction.response.send_message(
-        embed=embed_base("🛒 Tienda Oficial", "👉 https://aethermc-webshop.tebex.io"),
+        embed=embed_base("🛒 Tienda Oficial", "👉 mutations.tebex.io"),
         ephemeral=True
     )
 
@@ -507,6 +504,7 @@ async def avatar(interaction: discord.Interaction, usuario: discord.Member = Non
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
