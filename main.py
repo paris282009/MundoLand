@@ -119,6 +119,27 @@ async def tienda(interaction: discord.Interaction):
         ephemeral=True
     )
 
+# 1. Clase para la vista del botón (necesaria para que el botón exista)
+class LinkView(discord.ui.View):
+    def __init__(self, label, url, emoji):
+        super().__init__()
+        self.add_item(discord.ui.Button(label=label, url=url, emoji=emoji))
+
+# 2. El comando para editar el mensaje por ID
+@bot.command()
+async def agregar_link(ctx, channel_id: int, message_id: int, link: str):
+    try:
+        canal = bot.get_channel(channel_id)
+        mensaje = await canal.fetch_message(message_id)
+        
+        # Aquí configuras el texto y el emoji del botón
+        view = LinkView(label="Ir al enlace", url=link, emoji="🔗")
+        
+        await mensaje.edit(view=view)
+        await ctx.send("✅ Botón añadido correctamente.")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {e}")
+        
 # ======================================================
 # 📡 ESTADO DISCORD
 # ======================================================
@@ -465,6 +486,7 @@ async def avatar(interaction: discord.Interaction, usuario: discord.Member = Non
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(DISCORD_TOKEN)
+
 
 
 
