@@ -31,10 +31,17 @@ async def on_ready():
     
     # Sincronizar comandos slash
     try:
-        synced = await bot.tree.sync()
-        print(f"[SYNC] {len(synced)} comandos slash sincronizados")
-    except Exception as e:
-        print(f"[ERROR] Error sincronizando comandos: {e}")
+    GUILD_ID = os.getenv('ID_GUILD')
+    guild = discord.Object(id=int(GUILD_ID))
+    
+    await bot.tree.clear_commands(guild=None)  # Borra comandos globales viejos
+    await bot.tree.sync()
+    
+    bot.tree.copy_global_to(guild=guild)
+    synced = await bot.tree.sync(guild=guild)  # Sincroniza en tu servidor
+    print(f"[SYNC] {len(synced)} comandos slash sincronizados")
+except Exception as e:
+    print(f"[ERROR] Error sincronizando comandos: {e}")
     
     # Cambiar estado del bot
     await bot.change_presence(
