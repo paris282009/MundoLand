@@ -8,7 +8,7 @@ from flask import Flask
 
 load_dotenv()
 
-TOKEN = os.getenv('TOKEN')
+TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = '/'
 
 # Inicializar bot
