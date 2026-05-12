@@ -30,13 +30,10 @@ def run_flask():
 # ⚙️ CONFIGURACIÓN DEL BOT
 # ======================================================
 
-# Si usas Render, NO necesitas load_dotenv()
-# load_dotenv()  <-- comentar o borrar
-
 # Leer variables de entorno
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 if not DISCORD_TOKEN:
-    raise ValueError("❌ DISCORD_TOKEN no definido en las variables de entorno de Render")
+    raise ValueError("❌ DISCORD_TOKEN no definido en las variables de entorno")
 
 GUILD_ID = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") else None
 
@@ -54,13 +51,18 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_ready():
     print(f"🟢 Bot conectado como {bot.user}")
 
-    # Sincronizar comandos
+    # =========================
+    # Sincronización de comandos
+    # =========================
     try:
         if GUILD_ID:
-            guild_obj = discord.Object(id=GUILD_ID)
+            guild_obj = bot.get_guild(GUILD_ID)
+            if not guild_obj:
+                guild_obj = await bot.fetch_guild(GUILD_ID)
+
             bot.tree.copy_global_to(guild=guild_obj)
             synced = await bot.tree.sync(guild=guild_obj)
-            print(f"✅ {len(synced)} comandos sincronizados")
+            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
         else:
             synced = await bot.tree.sync()
             print(f"🌍 {len(synced)} comandos globales sincronizados")
@@ -78,41 +80,45 @@ def embed_base(titulo, descripcion, color=discord.Color.gold()):
         color=color,
         timestamp=datetime.datetime.utcnow()
     )
-    embed.set_footer(text="Mutation's Network• Sistema Oficial")
+    embed.set_footer(text="Mutation's Network • Sistema Oficial")
     return embed
 
-@bot.tree.command(name="embed_say", description="Envía un mensaje con texto y un embed")
-async def embed_say(interaction: discord.Interaction, texto: str, titulo: str, descripcion: str):
-    # Usamos tu función base para generar el embed
-    mi_embed = embed_base(titulo, descripcion)
-    
-    # Enviamos el 'content' (texto plano) y el 'embed' juntos
-    await interaction.response.send_message(
-        content=texto, 
-        embed=mi_embed
-    )
 
-# 1. Clase para la vista del botón (necesaria para que el botón exista)
+# ======================================================
+# 🔗 CLASE PARA BOTONES DE ENLACES
+# ======================================================
 class LinkView(discord.ui.View):
     def __init__(self, label, url, emoji):
         super().__init__()
         self.add_item(discord.ui.Button(label=label, url=url, emoji=emoji))
 
-# 2. El comando para editar el mensaje por ID
+
+# ======================================================
+# 📝 COMANDOS DE EMBEDS Y ENLACES
+# ======================================================
+@bot.tree.command(name="embed_say", description="Envía un mensaje con texto y un embed")
+async def embed_say(interaction: discord.Interaction, texto: str, titulo: str, descripcion: str):
+    mi_embed = embed_base(titulo, descripcion)
+    await interaction.response.send_message(content=texto, embed=mi_embed)
+
+
 @bot.command()
 async def agregar_link(ctx, channel_id: int, message_id: int, link: str):
+    """Agregar un botón de enlace a un mensaje existente"""
     try:
         canal = bot.get_channel(channel_id)
+        if not canal:
+            await ctx.send("❌ Canal no encontrado")
+            return
+        
         mensaje = await canal.fetch_message(message_id)
-        
-        # Aquí configuras el texto y el emoji del botón
         view = LinkView(label="Ir al enlace", url=link, emoji="🔗")
-        
         await mensaje.edit(view=view)
         await ctx.send("✅ Botón añadido correctamente.")
     except Exception as e:
         await ctx.send(f"❌ Error: {e}")
-        
+
+
 # ======================================================
 # 🔗 REDES SOCIALES
 # ======================================================
@@ -137,27 +143,7 @@ async def tienda(interaction: discord.Interaction):
         ephemeral=True
     )
 
-# 1. Clase para la vista del botón (necesaria para que el botón exista)
-class LinkView(discord.ui.View):
-    def __init__(self, label, url, emoji):
-        super().__init__()
-        self.add_item(discord.ui.Button(label=label, url=url, emoji=emoji))
 
-# 2. El comando para editar el mensaje por ID
-@bot.command()
-async def agregar_link(ctx, channel_id: int, message_id: int, link: str):
-    try:
-        canal = bot.get_channel(channel_id)
-        mensaje = await canal.fetch_message(message_id)
-        
-        # Aquí configuras el texto y el emoji del botón
-        view = LinkView(label="Ir al enlace", url=link, emoji="🔗")
-        
-        await mensaje.edit(view=view)
-        await ctx.send("✅ Botón añadido correctamente.")
-    except Exception as e:
-        await ctx.send(f"❌ Error: {e}")
-        
 # ======================================================
 # 📡 ESTADO DISCORD
 # ======================================================
@@ -169,6 +155,7 @@ async def estado(interaction: discord.Interaction):
         await interaction.response.send_message(f"📡 Estado de Discord: **{estado}**")
     except:
         await interaction.response.send_message("⚠️ Error al obtener el estado")
+
 
 # ======================================================
 # ⛏️ MINECRAFT
@@ -189,7 +176,6 @@ async def mcskin(interaction: discord.Interaction, nombre: str):
 
 @bot.tree.command(name="mcstatus", description="Estado del servidor Minecraft")
 async def mcstatus(interaction: discord.Interaction):
-
     # RESPONDEMOS INMEDIATO (clave para host gratis)
     await interaction.response.send_message(
         "⏳ Consultando el estado del servidor...",
@@ -247,7 +233,8 @@ async def mcstatus(interaction: discord.Interaction):
             embed=embed
         )
 
-    except:
+    except Exception as e:
+        print(f"❌ Error al obtener estado del servidor: {e}")
         await interaction.edit_original_response(
             content="⚠️ No se pudo obtener el estado del servidor."
         )
@@ -271,6 +258,7 @@ async def logro(interaction: discord.Interaction, texto: str):
     embed.set_image(url=url)
     await interaction.response.send_message(embed=embed)
 
+
 # ======================================================
 # 🧑 USUARIOS
 # ======================================================
@@ -285,6 +273,7 @@ async def userinfo(interaction: discord.Interaction, miembro: discord.Member = N
         embed.set_thumbnail(url=miembro.avatar.url)
     await interaction.response.send_message(embed=embed)
 
+
 # ======================================================
 # 🎉 DIVERSIÓN
 # ======================================================
@@ -295,8 +284,12 @@ async def datos(interaction: discord.Interaction):
 @bot.tree.command(name="sorteo", description="Sorteo aleatorio")
 async def sorteo(interaction: discord.Interaction, premio: str):
     usuarios = [m for m in interaction.guild.members if not m.bot]
+    if not usuarios:
+        await interaction.response.send_message("❌ No hay usuarios para sortear")
+        return
     ganador = random.choice(usuarios)
     await interaction.response.send_message(f"🎉 **{premio}**\n🏆 Ganador: {ganador.mention}")
+
 
 # ======================================================
 # 🗳️ VOTACIONES
@@ -328,6 +321,7 @@ async def votar_toop(interaction: discord.Interaction):
         "• https://minecraft-mp.com\n• https://topg.org"
     )
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 # ======================================================
 # 🛡️ MODERACIÓN
@@ -366,7 +360,7 @@ async def limpiar(interaction: discord.Interaction, cantidad: int):
 
 @bot.tree.command(name="reportar", description="Reportar jugador")
 async def reportar(interaction: discord.Interaction, jugador: str, motivo: str):
-    ID_CANAL_REPORTES = 137275334319747802
+    ID_CANAL_REPORTES = 1372753343197478012  # REEMPLAZA CON TU ID DE CANAL
     canal = bot.get_channel(ID_CANAL_REPORTES)
     embed = embed_base(
         "🚩 Nuevo Reporte",
@@ -379,8 +373,9 @@ async def reportar(interaction: discord.Interaction, jugador: str, motivo: str):
     else:
         await interaction.response.send_message("❌ Canal no encontrado", ephemeral=True)
 
+
 # ======================================================
-# 🎫 SISTEMA DE TICKETS (BOTONES) MEJORADO
+# 🎫 SISTEMA DE TICKETS (BOTONES)
 # ======================================================
 class TicketView(discord.ui.View):
     def __init__(self):
@@ -391,13 +386,13 @@ class TicketView(discord.ui.View):
         guild = interaction.guild
 
         # Nombre de la categoría donde se crearán los tickets
-        categoria_nombre = "Soporte"  # <-- Cambia esto si quieres otro nombre
+        categoria_nombre = "Soporte"
         categoria = discord.utils.get(guild.categories, name=categoria_nombre)
         if not categoria:
             categoria = await guild.create_category(categoria_nombre)
 
         # Nombre del canal de ticket
-        canal_nombre = f"soporte-{interaction.user.name}"  # <-- Cambia prefijo si quieres
+        canal_nombre = f"soporte-{interaction.user.name}"
         canal = await guild.create_text_channel(
             name=canal_nombre,
             category=categoria
@@ -409,7 +404,7 @@ class TicketView(discord.ui.View):
         await canal.set_permissions(guild.default_role, read_messages=False)
 
         # Permisos para Staff
-        staff = discord.utils.get(guild.roles, name="Staff")  # <-- Cambia nombre del rol si es distinto
+        staff = discord.utils.get(guild.roles, name="Staff")
         if staff:
             await canal.set_permissions(staff, read_messages=True, send_messages=True)
 
@@ -423,52 +418,20 @@ class TicketView(discord.ui.View):
         await interaction.response.send_message("✅ Ticket creado", ephemeral=True)
 
 
-
-    @bot.event
-async def on_ready():
-    print(f"🟢 Bot conectado como {bot.user}")
-
-    # =========================
-    # Sincronización de comandos
-    # =========================
-    try:
-        if GUILD_ID:
-            guild_obj = bot.get_guild(GUILD_ID)
-            if not guild_obj:
-                # Si el bot aún no tiene cache del guild
-                guild_obj = await bot.fetch_guild(GUILD_ID)
-
-            # Copiar comandos globales al guild
-            bot.tree.copy_global_to(guild=guild_obj)
-            synced = await bot.tree.sync(guild=guild_obj)
-            print(f"✅ {len(synced)} comandos sincronizados en el servidor")
-        else:
-            synced = await bot.tree.sync()
-            print(f"🌍 {len(synced)} comandos globales sincronizados")
-    except Exception as e:
-        print(f"❌ Error al sincronizar comandos: {e}")
-
-    # Conectar al canal de voz
-    await unir_al_voice()
-  
-# =========================
-# COMANDOS UTILIDAD
-# =========================
-
-# /ping → Muestra la latencia del bot
+# ======================================================
+# ⏱️ COMANDOS UTILIDAD
+# ======================================================
 @bot.tree.command(name="ping", description="Muestra la latencia del bot")
 async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
     await interaction.response.send_message(f"🏓 Pong! Latencia: **{latency} ms**")
 
-# /uptime → Muestra cuánto tiempo lleva encendido el bot
 @bot.tree.command(name="uptime", description="Muestra el tiempo que lleva encendido el bot")
 async def uptime(interaction: discord.Interaction):
     segundos = int(time.time() - START_TIME)
     tiempo_str = str(datetime.timedelta(seconds=segundos))
     await interaction.response.send_message(f"⏱️ Uptime del bot: **{tiempo_str}**")
 
-# /serverinfo → Información del servidor
 @bot.tree.command(name="serverinfo", description="Muestra información del servidor")
 async def serverinfo(interaction: discord.Interaction):
     guild = interaction.guild
@@ -485,7 +448,6 @@ async def serverinfo(interaction: discord.Interaction):
     embed.set_footer(text=f"Solicitado por {interaction.user.name}")
     await interaction.response.send_message(embed=embed)
 
-# /avatar → Muestra el avatar de un usuario o del propio
 @bot.tree.command(name="avatar", description="Muestra el avatar de un usuario")
 @app_commands.describe(usuario="Usuario del que quieres ver el avatar")
 async def avatar(interaction: discord.Interaction, usuario: discord.Member = None):
@@ -502,18 +464,5 @@ async def avatar(interaction: discord.Interaction, usuario: discord.Member = Non
 # ▶️ EJECUCIÓN
 # ======================================================
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
+    threading.Thread(target=run_flask, daemon=True).start()
     bot.run(DISCORD_TOKEN)
-
-
-
-
-
-
-
-
-
-
-
-
-
