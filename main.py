@@ -11,6 +11,10 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 PREFIX = '/'
 
+# Determinar modo: desarrollo (local) o producción (Render)
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'production').lower()
+DEV_GUILD_ID = os.getenv('DEV_GUILD_ID')  # Solo usado en desarrollo
+
 # Inicializar bot
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=PREFIX, intents=intents)
@@ -20,24 +24,35 @@ async def load_cogs():
     """Cargar todos los cogs de la carpeta 'cogs'"""
     for filename in os.listdir('./cogs'):
         if filename.endswith('.py'):
-            await bot.load_extension(f'cogs.{filename[:-3]}')
-            print(f"[COGS] {filename} cargado")
+            try:
+                await bot.load_extension(f'cogs.{filename[:-3]}')
+                print(f"[COGS] {filename} cargado correctamente")
+            except Exception as e:
+                print(f"[ERROR] Error cargando {filename}: {e}")
 
 @bot.event
 async def on_ready():
     """Evento cuando el bot está listo"""
+    print(f"\n{'='*50}")
     print(f"Bot conectado como {bot.user}")
     print(f"Número de servidores: {len(bot.guilds)}")
+    print(f"Entorno: {ENVIRONMENT}")
+    print(f"{'='*50}\n")
     
     # Sincronizar comandos slash
     try:
-        GUILD_ID = os.getenv('ID_GUILD')
-        guild = discord.Object(id=int(GUILD_ID))
-        await bot.tree.clear_commands(guild=None)
-        await bot.tree.sync()
-        bot.tree.copy_global_to(guild=guild)
-        synced = await bot.tree.sync(guild=guild)
-        print(f"[SYNC] {len(synced)} comandos slash sincronizados")
+        if ENVIRONMENT == 'development' and DEV_GUILD_ID:
+            # Modo DESARROLLO: sincronizar solo en servidor específico (instantáneo)
+            dev_guild = discord.Object(id=int(DEV_GUILD_ID))
+            synced = await bot.tree.sync(guild=dev_guild)
+            print(f"[SYNC] {len(synced)} comandos sincronizados en servidor de desarrollo")
+            print(f"[INFO] Servidor de desarrollo ID: {DEV_GUILD_ID}")
+        else:
+            # Modo PRODUCCIÓN: sincronizar globalmente (para múltiples servidores)
+            synced = await bot.tree.sync()
+            print(f"[SYNC] {len(synced)} comandos globales sincronizados")
+            print(f"[INFO] Los comandos pueden tardar hasta 1 hora en aparecer en Discord")
+            print(f"[INFO] El bot ahora funciona en múltiples servidores")
     except Exception as e:
         print(f"[ERROR] Error sincronizando comandos: {e}")
     

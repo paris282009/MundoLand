@@ -1,152 +1,106 @@
-# Bot de Discord - MundoLand 2.0
+# 🤖 MundoLand Bot - Actualización Multi-Servidor
 
-Bot multifuncional para Discord con sistema modular de Cogs.
+## ¿Qué es esto?
 
-## Instalación
+Esta es la **versión actualizada** de tu bot que ahora:
+- ✅ Funciona en **múltiples servidores**
+- ✅ Los comandos se **actualizan correctamente** en Discord
+- ✅ Es **completamente público** (cualquiera puede añadirlo)
 
-1. **Clonar el repositorio**
-```bash
-git clone tu-repo
-cd tu-repo
+## 📁 Archivos que necesitas
+
+### Principales
+- **`main.py`** - Código del bot actualizado (REEMPLAZA el tuyo)
+- **`.env.example`** - Variables de entorno de referencia
+
+### Ayuda & Documentación
+- **`INICIO_AQUI.txt`** - 👈 Empieza aquí (5 min lectura)
+- **`RESUMEN_RAPIDO.txt`** - Resumen visual de los pasos
+- **`ACTUALIZACION_GUIA.md`** - Guía completa y detallada
+- **`EXPLICACION_TECNICA.md`** - Cómo funciona técnicamente
+
+### Herramientas
+- **`sync_commands.py`** - Script para sincronizar comandos manualmente
+
+## 🚀 Inicio rápido (30 segundos)
+
+1. Descarga `main.py` y reemplaza el tuyo
+2. Lee `INICIO_AQUI.txt` (tiene los pasos paso-a-paso)
+3. Sigue las 6 fases (toma ~30 min total)
+
+## 🔑 Variables de Entorno
+
+### En Render (Producción)
+```
+DISCORD_TOKEN=tu_token_aqui
+ENVIRONMENT=production
 ```
 
-2. **Instalar dependencias**
-```bash
-pip install -r requirements.txt
+### Local (Desarrollo - Opcional)
+```
+DISCORD_TOKEN=tu_token_aqui
+ENVIRONMENT=development
+DEV_GUILD_ID=123456789
 ```
 
-3. **Configurar variables de entorno**
-```bash
-cp .env.example .env
-# Editar .env y agregar tu TOKEN de Discord
-```
+## 📊 Antes vs Después
 
-4. **Ejecutar el bot**
-```bash
-python main.py
-```
+### Antes ❌
+- Bot solo en 1 servidor
+- Comandos antiguos no desaparecían
+- No se podía añadir a otros servidores
 
-## Estructura del Proyecto
+### Después ✅
+- Bot en infinitos servidores
+- Comandos se actualizan correctamente
+- Sincronización automática en Render
 
-```
-.
-├── main.py                 # Archivo principal del bot
-├── webserver.py            # Servidor web para mantener vivo
-├── config.py               # Configuración centralizada
-├── database.py             # Manejo de base de datos SQLite
-├── requirements.txt        # Dependencias
-├── .env.example            # Variables de entorno de ejemplo
-├── .env                    # Variables de entorno (no subir a GitHub)
-├── bot_data.db             # Base de datos (se crea automáticamente)
-└── cogs/                   # Módulos del bot
-    ├── utility.py          # Encuestas, /say, /say-embed, /limpiar
-    ├── information.py      # /datos, /estado, /avatar, /userinfo
-    ├── integrations.py     # /stats, /tiktok, /youtube
-    ├── server_system.py    # /serveradd, /serveredit, /servidores, /add-boton
-    └── shop.py             # /tienda (estructura)
-```
+## ⏱️ Tiempos de sincronización
 
-## Comandos Disponibles
+- **Desarrollo (Local)**: ~5 segundos (instantáneo)
+- **Producción (Render)**: Hasta 1 hora (es normal de Discord)
 
-### Utilidad
-- `/encuesta <pregunta> <opciones>` - Crear votación
-- `/say <mensaje>` - Enviar mensaje personalizado (admin)
-- `/say_embed <titulo> <descripcion>` - Enviar embed personalizado (admin)
-- `/limpiar <cantidad>` - Borrar mensajes (admin)
+## 📖 ¿Cuál archivo leer?
 
-### Información
-- `/datos` - Info del servidor
-- `/estado` - Estado del servidor
-- `/avatar [usuario]` - Ver avatar
-- `/userinfo [usuario]` - Info del usuario
+- **Soy nuevo en esto**: Lee `INICIO_AQUI.txt`
+- **Quiero más detalles**: Lee `ACTUALIZACION_GUIA.md`
+- **Me interesa la técnica**: Lee `EXPLICACION_TECNICA.md`
+- **Solo quiero los pasos**: Lee `RESUMEN_RAPIDO.txt`
 
-### Integraciones
-- `/stats <usuario>` - Stats de Minecraft (NameMC)
-- `/tiktok_agregar <usuario> <url>` - Configurar TikTok (owner)
-- `/tiktok` - Ver TikTok del servidor
-- `/youtube_agregar <canal> <url>` - Configurar YouTube (owner)
-- `/youtube` - Ver YouTube del servidor
+## ✅ Checklist final
 
-### Sistema de Servidores
-- `/serveradd <nombre> <ip> <puerto> [descripcion]` - Registrar servidor
-- `/serveredit <id> [nuevo_nombre] [descripcion]` - Editar servidor
-- `/servidores` - Listar todos los servidores
-- `/add_boton <message_id> <nombre> <url>` - Agregar botón a mensaje (admin)
+- [ ] Descargué `main.py`
+- [ ] Actualicé mi repositorio GitHub
+- [ ] Configuré variables en Render
+- [ ] Hice deploy en Render
+- [ ] Esperé ~1 hora
+- [ ] Probé en otro servidor
 
-### Tienda
-- `/tienda` - Ver tienda (en construcción)
+## 🆘 Problemas?
 
-## Permisos Restringidos
+### Los comandos tardan mucho
+→ Es normal (hasta 1 hora de Discord). Espera.
 
-Los siguientes comandos solo funcionan en ciertos niveles:
+### Los comandos no aparecen en otro servidor
+→ Espera 1 hora más o usa ENVIRONMENT=development localmente
 
-| Comando | Restricción |
-|---------|------------|
-| `/say` | Administrador |
-| `/say_embed` | Administrador |
-| `/limpiar` | Administrador |
-| `/tiktok_agregar` | Dueño del servidor |
-| `/youtube_agregar` | Dueño del servidor |
-| `/add_boton` | Administrador |
+### El bot no conecta
+→ Verifica DISCORD_TOKEN es correcto
 
-## Base de Datos
+### Veo errores de cogs
+→ Verifica que los archivos estén en `./cogs/`
 
-El bot usa SQLite (`bot_data.db`) para almacenar:
-- Servidores registrados
-- Enlaces de redes sociales
-- Botones agregados a mensajes
-- Encuestas
+## 💡 Extras
 
-Las tablas se crean automáticamente al iniciar el bot.
+Para probar cambios **instantáneamente** en desarrollo:
+1. Cambia a `ENVIRONMENT=development` + `DEV_GUILD_ID`
+2. Los cambios aparecen en ~5 segundos
+3. (Solo funciona en ese servidor de prueba)
 
-## Despliegue
+## 📝 Licencia
 
-### Replit
-1. Conectar repositorio GitHub
-2. Agregar TOKEN en Secrets
-3. Ejecutar `python main.py`
+Misma que tu proyecto original.
 
-### Railway/Render
-1. Conectar repositorio GitHub
-2. Agregar variable `TOKEN` en variables de entorno
-3. Command: `python main.py`
+---
 
-### Otros hosts
-El webserver incorporado mantiene el bot activo respondiendo a peticiones HTTP en puerto 5000.
-
-## Agregar Nuevos Comandos
-
-1. Crear nuevo archivo en `cogs/`
-```python
-from discord.ext import commands
-from discord import app_commands
-
-class MyCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
-    
-    @app_commands.command(name="ejemplo", description="Comando de ejemplo")
-    async def ejemplo(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Hola!")
-
-async def setup(bot):
-    await bot.add_cog(MyCog(bot))
-```
-
-2. El bot cargará automáticamente el cog.
-
-## Troubleshooting
-
-**El bot no responde**: Verifica que el TOKEN sea correcto en `.env`
-
-**Comandos no aparecen**: Espera 1-2 minutos para que se sincronicen los slash commands
-
-**Error de base de datos**: Borra `bot_data.db` y reinicia el bot
-
-## Licencia
-
-Todos los derechos reservados.
-
-## Soporte
-
-Para reportar bugs o sugerir características, abre un issue en GitHub.
+**¿Preguntas? Lee `INICIO_AQUI.txt` primero** 👈
