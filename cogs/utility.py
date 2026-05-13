@@ -1,5 +1,5 @@
 """
-Cog de Utilidad: Encuestas, /say, /say-embed, /limpiar
+Cog de Utilidad: Encuestas, /say, /say-embed, /limpiar, /emogi_id
 """
 
 import discord
@@ -47,20 +47,22 @@ class UtilityCog(commands.Cog):
         for i in range(len(opciones_list)):
             await message.add_reaction(emojis[i])
     
-    # ============== SAY ==============
-    
-    @app_commands.command(name="say", description="Enviar un mensaje (solo admin)")
-    @app_commands.describe(mensaje="El mensaje a enviar")
-    async def say(self, interaction: discord.Interaction, mensaje: str):
-        """Comando say solo para administradores"""
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message(
-                "Solo administradores pueden usar este comando",
-                ephemeral=True
-            )
-            return
-        
-        await interaction.response.defer()
+   # ============== SAY ==============
+
+@app_commands.command(name="say", description="Enviar un mensaje (solo admin)")
+@app_commands.describe(mensaje="El mensaje a enviar")
+async def say(self, interaction: discord.Interaction, mensaje: str):
+    """Comando say solo para administradores"""
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "Solo administradores pueden usar este comando",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    await interaction.channel.send(mensaje)
+    await interaction.followup.send("✅ Mensaje enviado.", ephemeral=True)
         
         # Crear embed con opciones de personalización
         embed = discord.Embed(
@@ -241,3 +243,60 @@ class ImageModal(discord.ui.Modal, title="Agregar Imagen"):
 
 async def setup(bot):
     await bot.add_cog(UtilityCog(bot))
+
+    # ============== COMANDO EMOJI_ID ==============
+    
+    @app_commands.command(name="emogi_id", description="Lista de emojis animados y sus IDs")
+    async def emogi_id(self, interaction: discord.Interaction):
+        """Comando para listar emojis animados del servidor"""
+        await interaction.response.defer()
+        
+        # Obtener servidor actual
+        guild = interaction.guild
+        
+        if not guild:
+            await interaction.followup.send("Este comando solo funciona en servidores")
+            return
+        
+        # Filtrar emojis animados
+        animated_emojis = [emoji for emoji in guild.emojis if emoji.animated]
+        
+        if not animated_emojis:
+            embed = discord.Embed(
+                title="❌ No hay emojis animados",
+                description="Este servidor no tiene emojis animados",
+                color=COLORS['error']
+            )
+            await interaction.followup.send(embed=embed)
+            return
+        
+        # Crear embeds (máximo 25 campos por embed)
+        embeds = []
+        current_embed = discord.Embed(
+            title="🎬 Emojis Animados",
+            description=f"Total: {len(animated_emojis)} emojis animados",
+            color=COLORS['purple']
+        )
+        
+        for i, emoji in enumerate(animated_emojis):
+            # Cada 25 emojis, crear un nuevo embed
+            if i > 0 and i % 25 == 0:
+                embeds.append(current_embed)
+                current_embed = discord.Embed(
+                    title="🎬 Emojis Animados (continuación)",
+                    color=COLORS['purple']
+                )
+            
+            # Añadir campo con emoji, nombre e ID
+            current_embed.add_field(
+                name=f"{emoji} {emoji.name}",
+                value=f"```ID: {emoji.id}```",
+                inline=False
+            )
+        
+        # Añadir el último embed
+        embeds.append(current_embed)
+        
+        # Enviar embeds
+        for embed in embeds:
+            await interaction.followup.send(embed=embed)
