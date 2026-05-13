@@ -97,7 +97,76 @@ async def say(self, interaction: discord.Interaction, mensaje: str):
         
         view = EmbedEditorView(self.bot, interaction.user, titulo, descripcion, interaction.channel)
         await interaction.followup.send(embed=embed, view=view)
-    
+
+    # ============== M_EMBED ==============
+
+@app_commands.command(name="m_embed", description="Crear un embed personalizado (solo admin)")
+async def m_embed(self, interaction: discord.Interaction):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "Solo administradores pueden usar este comando",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.send_modal(EmbedCreatorModal())
+
+
+class EmbedCreatorModal(discord.ui.Modal, title="Crear Embed"):
+    embed_title = discord.ui.TextInput(
+        label="Título",
+        placeholder="Título del embed...",
+        required=False,
+        max_length=256
+    )
+    descripcion = discord.ui.TextInput(
+        label="Descripción",
+        placeholder="Descripción del embed...",
+        style=discord.TextStyle.paragraph,
+        required=False,
+        max_length=4000
+    )
+    color_hex = discord.ui.TextInput(
+        label="Color (hex)",
+        placeholder="Ej: ff0000  (rojo)  —  sin el #",
+        required=False,
+        max_length=6
+    )
+    imagen_url = discord.ui.TextInput(
+        label="URL de imagen principal",
+        placeholder="https://...",
+        required=False
+    )
+    footer = discord.ui.TextInput(
+        label="Texto del pie (footer)",
+        placeholder="Texto que aparece abajo...",
+        required=False,
+        max_length=2048
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        # Color
+        try:
+            color = int(self.color_hex.value.strip(), 16) if self.color_hex.value.strip() else COLORS['info']
+        except ValueError:
+            color = COLORS['info']
+
+        embed = discord.Embed(
+            title=self.embed_title.value or None,
+            description=self.descripcion.value or None,
+            color=color
+        )
+
+        if self.imagen_url.value.strip():
+            embed.set_image(url=self.imagen_url.value.strip())
+
+        if self.footer.value.strip():
+            embed.set_footer(text=self.footer.value.strip())
+
+        await interaction.response.defer(ephemeral=True)
+        await interaction.channel.send(embed=embed)
+        await interaction.followup.send("✅ Embed enviado.", ephemeral=True)
+        
     # ============== LIMPIAR ==============
     
     @app_commands.command(name="limpiar", description="Borrar mensajes (solo admin)")
