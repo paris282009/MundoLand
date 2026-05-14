@@ -151,7 +151,7 @@ class ServerSystemCog(commands.Cog):
     async def add_boton(
         self,
         interaction: discord.Interaction,
-        message_id: int,
+        message_id: str,
         nombre_boton: str,
         url: str
     ):
@@ -165,25 +165,37 @@ class ServerSystemCog(commands.Cog):
             return
         
         try:
+            # Convertir message_id de string a int
+            try:
+                msg_id = int(message_id)
+            except ValueError:
+                await interaction.response.send_message(
+                    "❌ El ID del mensaje debe ser un número válido",
+                    ephemeral=True
+                )
+                return
+            
             # Buscar el mensaje en todos los canales
             message = None
             for channel in interaction.guild.text_channels:
                 try:
-                    message = await channel.fetch_message(message_id)
+                    message = await channel.fetch_message(msg_id)
                     break
                 except discord.NotFound:
+                    continue
+                except discord.Forbidden:
                     continue
             
             if not message:
                 await interaction.response.send_message(
-                    "Mensaje no encontrado",
+                    "❌ Mensaje no encontrado. Asegúrate de que el ID es correcto y el bot tiene acceso al canal.",
                     ephemeral=True
                 )
                 return
             
             # Agregar botón a la BD
             add_button_to_message(
-                message_id,
+                msg_id,
                 message.channel.id,
                 interaction.guild.id,
                 nombre_boton,
@@ -203,13 +215,13 @@ class ServerSystemCog(commands.Cog):
             await message.edit(view=view)
             
             await interaction.response.send_message(
-                f"Botón '{nombre_boton}' agregado al mensaje",
+                f"✅ Botón '{nombre_boton}' agregado al mensaje correctamente",
                 ephemeral=True
             )
         
         except Exception as e:
             await interaction.response.send_message(
-                f"Error al agregar botón: {str(e)}",
+                f"❌ Error al agregar botón: {str(e)}",
                 ephemeral=True
             )
 

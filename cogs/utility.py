@@ -1,12 +1,11 @@
 """
-Cog de Utilidad: Encuestas, /say, /say-embed, /limpiar, /emogi_id
+Cog de Utilidad: Encuestas, /say, /decir_embed, /limpiar, /emoji_id
 """
 
 import discord
 from discord.ext import commands
 from discord import app_commands
 from config import COLORS
-from database import add_button_to_message
 import asyncio
 
 class UtilityCog(commands.Cog):
@@ -47,39 +46,28 @@ class UtilityCog(commands.Cog):
         for i in range(len(opciones_list)):
             await message.add_reaction(emojis[i])
     
-   # ============== SAY ==============
-
-@app_commands.command(name="say", description="Enviar un mensaje (solo admin)")
-@app_commands.describe(mensaje="El mensaje a enviar")
-async def say(self, interaction: discord.Interaction, mensaje: str):
-    """Comando say solo para administradores"""
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message(
-            "Solo administradores pueden usar este comando",
-            ephemeral=True
-        )
-        return
-
-    await interaction.response.defer(ephemeral=True)
-    await interaction.channel.send(mensaje)
-    await interaction.followup.send("✅ Mensaje enviado.", ephemeral=True)
-        
-        # Crear embed con opciones de personalización
-        embed = discord.Embed(
-            title="Editor de Mensajes",
-            description=f"Mensaje: {mensaje}",
-            color=COLORS['info']
-        )
-        
-        view = MessageEditorView(self.bot, interaction.user, mensaje, interaction.channel)
-        await interaction.followup.send(embed=embed, view=view)
+    # ============== SAY ==============
     
-    # ============== SAY-EMBED ==============
+    @app_commands.command(name="say", description="Enviar un mensaje de texto (solo admin)")
+    @app_commands.describe(mensaje="El mensaje a enviar")
+    async def say(self, interaction: discord.Interaction, mensaje: str):
+        """Comando say solo para administradores - Solo texto, sin embed"""
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message(
+                "Solo administradores pueden usar este comando",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        await interaction.channel.send(mensaje)
+        await interaction.followup.send("✅ Mensaje enviado.", ephemeral=True)
     
-    @app_commands.command(name="say_embed", description="Enviar un embed personalizado (solo admin)")
-    @app_commands.describe(titulo="Título del embed", descripcion="Descripción")
-    async def say_embed(self, interaction: discord.Interaction, titulo: str, descripcion: str):
-        """Comando say-embed para administradores"""
+    # ============== DECIR EMBED (Menú interactivo tipo Nekotina) ==============
+    
+    @app_commands.command(name="decir_embed", description="Crear embed con menú personalizado (solo admin)")
+    async def decir_embed(self, interaction: discord.Interaction):
+        """Comando decir_embed con menú interactivo para crear embeds"""
         if not interaction.user.guild_permissions.administrator:
             await interaction.response.send_message(
                 "Solo administradores pueden usar este comando",
@@ -87,86 +75,8 @@ async def say(self, interaction: discord.Interaction, mensaje: str):
             )
             return
         
-        await interaction.response.defer()
-        
-        embed = discord.Embed(
-            title=titulo,
-            description=descripcion,
-            color=COLORS['purple']
-        )
-        
-        view = EmbedEditorView(self.bot, interaction.user, titulo, descripcion, interaction.channel)
-        await interaction.followup.send(embed=embed, view=view)
-
-    # ============== M_EMBED ==============
-
-@app_commands.command(name="m_embed", description="Crear un embed personalizado (solo admin)")
-async def m_embed(self, interaction: discord.Interaction):
-    if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message(
-            "Solo administradores pueden usar este comando",
-            ephemeral=True
-        )
-        return
-
-    await interaction.response.send_modal(EmbedCreatorModal())
-
-
-class EmbedCreatorModal(discord.ui.Modal, title="Crear Embed"):
-    embed_title = discord.ui.TextInput(
-        label="Título",
-        placeholder="Título del embed...",
-        required=False,
-        max_length=256
-    )
-    descripcion = discord.ui.TextInput(
-        label="Descripción",
-        placeholder="Descripción del embed...",
-        style=discord.TextStyle.paragraph,
-        required=False,
-        max_length=4000
-    )
-    color_hex = discord.ui.TextInput(
-        label="Color (hex)",
-        placeholder="Ej: ff0000  (rojo)  —  sin el #",
-        required=False,
-        max_length=6
-    )
-    imagen_url = discord.ui.TextInput(
-        label="URL de imagen principal",
-        placeholder="https://...",
-        required=False
-    )
-    footer = discord.ui.TextInput(
-        label="Texto del pie (footer)",
-        placeholder="Texto que aparece abajo...",
-        required=False,
-        max_length=2048
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        # Color
-        try:
-            color = int(self.color_hex.value.strip(), 16) if self.color_hex.value.strip() else COLORS['info']
-        except ValueError:
-            color = COLORS['info']
-
-        embed = discord.Embed(
-            title=self.embed_title.value or None,
-            description=self.descripcion.value or None,
-            color=color
-        )
-
-        if self.imagen_url.value.strip():
-            embed.set_image(url=self.imagen_url.value.strip())
-
-        if self.footer.value.strip():
-            embed.set_footer(text=self.footer.value.strip())
-
-        await interaction.response.defer(ephemeral=True)
-        await interaction.channel.send(embed=embed)
-        await interaction.followup.send("✅ Embed enviado.", ephemeral=True)
-        
+        await interaction.response.send_modal(EmbedCreatorModal(interaction.channel))
+    
     # ============== LIMPIAR ==============
     
     @app_commands.command(name="limpiar", description="Borrar mensajes (solo admin)")
@@ -200,123 +110,11 @@ class EmbedCreatorModal(discord.ui.Modal, title="Crear Embed"):
                 f"Error al borrar mensajes: {str(e)}",
                 ephemeral=True
             )
-
-# ============== VISTAS (VIEWS) ==============
-
-class MessageEditorView(discord.ui.View):
-    """Vista para editar mensajes"""
     
-    def __init__(self, bot, user, mensaje, channel):
-        super().__init__()
-        self.bot = bot
-        self.user = user
-        self.mensaje = mensaje
-        self.channel = channel
-        self.color = COLORS['purple']
-        self.image_url = None
-        self.fields = []
+    # ============== EMOJI_ID ==============
     
-    @discord.ui.button(label="Color", style=discord.ButtonStyle.primary)
-    async def color_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ColorModal(self))
-    
-    @discord.ui.button(label="Imagen", style=discord.ButtonStyle.secondary)
-    async def image_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ImageModal(self))
-    
-    @discord.ui.button(label="Enviar", style=discord.ButtonStyle.success)
-    async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed(
-            description=self.mensaje,
-            color=self.color
-        )
-        
-        if self.image_url:
-            embed.set_image(url=self.image_url)
-        
-        await self.channel.send(embed=embed)
-        await interaction.response.send_message("Mensaje enviado", ephemeral=True)
-        self.stop()
-
-class EmbedEditorView(discord.ui.View):
-    """Vista para editar embeds"""
-    
-    def __init__(self, bot, user, titulo, descripcion, channel):
-        super().__init__()
-        self.bot = bot
-        self.user = user
-        self.titulo = titulo
-        self.descripcion = descripcion
-        self.channel = channel
-        self.color = COLORS['purple']
-        self.image_url = None
-    
-    @discord.ui.button(label="Color", style=discord.ButtonStyle.primary)
-    async def color_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ColorModal(self))
-    
-    @discord.ui.button(label="Imagen", style=discord.ButtonStyle.secondary)
-    async def image_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ImageModal(self))
-    
-    @discord.ui.button(label="Enviar", style=discord.ButtonStyle.success)
-    async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        embed = discord.Embed(
-            title=self.titulo,
-            description=self.descripcion,
-            color=self.color
-        )
-        
-        if self.image_url:
-            embed.set_image(url=self.image_url)
-        
-        await self.channel.send(embed=embed)
-        await interaction.response.send_message("Embed enviado", ephemeral=True)
-        self.stop()
-
-class ColorModal(discord.ui.Modal, title="Cambiar Color"):
-    """Modal para cambiar color del embed"""
-    
-    color_input = discord.ui.TextInput(
-        label="Color en Hex (ej: FF0000)",
-        placeholder="FF0000"
-    )
-    
-    def __init__(self, view):
-        super().__init__()
-        self.view = view
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        try:
-            color_hex = self.color_input.value.replace("#", "")
-            self.view.color = int(color_hex, 16)
-            await interaction.response.send_message("Color actualizado", ephemeral=True)
-        except ValueError:
-            await interaction.response.send_message("Color inválido", ephemeral=True)
-
-class ImageModal(discord.ui.Modal, title="Agregar Imagen"):
-    """Modal para agregar imagen"""
-    
-    url_input = discord.ui.TextInput(
-        label="URL de la imagen",
-        placeholder="https://ejemplo.com/imagen.png"
-    )
-    
-    def __init__(self, view):
-        super().__init__()
-        self.view = view
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        self.view.image_url = self.url_input.value
-        await interaction.response.send_message("Imagen agregada", ephemeral=True)
-
-async def setup(bot):
-    await bot.add_cog(UtilityCog(bot))
-
-    # ============== COMANDO EMOJI_ID ==============
-    
-    @app_commands.command(name="emogi_id", description="Lista de emojis animados y sus IDs")
-    async def emogi_id(self, interaction: discord.Interaction):
+    @app_commands.command(name="emoji_id", description="Lista de emojis animados y sus IDs")
+    async def emoji_id(self, interaction: discord.Interaction):
         """Comando para listar emojis animados del servidor"""
         await interaction.response.defer()
         
@@ -369,3 +167,154 @@ async def setup(bot):
         # Enviar embeds
         for embed in embeds:
             await interaction.followup.send(embed=embed)
+
+
+# ============== MODALES ==============
+
+class EmbedCreatorModal(discord.ui.Modal, title="Crear Embed"):
+    """Modal para crear un embed completo con opciones tipo Nekotina"""
+    
+    titulo = discord.ui.TextInput(
+        label="Título",
+        placeholder="Título del embed...",
+        required=False,
+        max_length=256
+    )
+    
+    descripcion = discord.ui.TextInput(
+        label="Descripción",
+        placeholder="Descripción del embed...",
+        style=discord.TextStyle.paragraph,
+        required=False,
+        max_length=4000
+    )
+    
+    color_hex = discord.ui.TextInput(
+        label="Color (hex)",
+        placeholder="Ej: ff0000 (rojo) - sin el #",
+        required=False,
+        max_length=6
+    )
+    
+    autor = discord.ui.TextInput(
+        label="Autor",
+        placeholder="Nombre del autor...",
+        required=False,
+        max_length=256
+    )
+    
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        # Color
+        try:
+            color = int(self.color_hex.value.strip(), 16) if self.color_hex.value.strip() else COLORS['purple']
+        except ValueError:
+            color = COLORS['purple']
+
+        embed = discord.Embed(
+            title=self.titulo.value or None,
+            description=self.descripcion.value or None,
+            color=color
+        )
+
+        if self.autor.value.strip():
+            embed.set_author(name=self.autor.value.strip())
+
+        # Mostrar menú para más opciones
+        await interaction.response.defer(ephemeral=True)
+        view = EmbedEditorView(embed, self.channel)
+        await interaction.followup.send(
+            "Elige qué más quieres agregar al embed:",
+            view=view,
+            ephemeral=True
+        )
+
+
+class EmbedEditorView(discord.ui.View):
+    """Vista interactiva para editar embeds"""
+    
+    def __init__(self, embed: discord.Embed, channel):
+        super().__init__()
+        self.embed = embed
+        self.channel = channel
+        self.image_url = None
+        self.thumbnail_url = None
+        self.footer_text = None
+    
+    @discord.ui.button(label="📷 Imagen Principal", style=discord.ButtonStyle.primary)
+    async def image_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(ImageModal(self, "principal"))
+    
+    @discord.ui.button(label="🖼️ Imagen de Perfil", style=discord.ButtonStyle.primary)
+    async def thumbnail_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(ImageModal(self, "thumbnail"))
+    
+    @discord.ui.button(label="📝 Pie de Página", style=discord.ButtonStyle.secondary)
+    async def footer_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(FooterModal(self))
+    
+    @discord.ui.button(label="📤 Enviar Embed", style=discord.ButtonStyle.success)
+    async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.image_url:
+            self.embed.set_image(url=self.image_url)
+        if self.thumbnail_url:
+            self.embed.set_thumbnail(url=self.thumbnail_url)
+        if self.footer_text:
+            self.embed.set_footer(text=self.footer_text)
+        
+        await self.channel.send(embed=self.embed)
+        await interaction.response.send_message("✅ Embed enviado correctamente", ephemeral=True)
+        self.stop()
+
+
+class ImageModal(discord.ui.Modal, title="Agregar Imagen"):
+    """Modal para agregar imágenes"""
+    
+    url_input = discord.ui.TextInput(
+        label="URL de la imagen",
+        placeholder="https://ejemplo.com/imagen.png",
+        required=True
+    )
+    
+    def __init__(self, view: EmbedEditorView, image_type: str):
+        super().__init__()
+        self.view = view
+        self.image_type = image_type
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        url = self.url_input.value.strip()
+        
+        if self.image_type == "principal":
+            self.view.image_url = url
+            mensaje = "✅ Imagen principal agregada"
+        else:
+            self.view.thumbnail_url = url
+            mensaje = "✅ Imagen de perfil agregada"
+        
+        await interaction.response.send_message(mensaje, ephemeral=True)
+
+
+class FooterModal(discord.ui.Modal, title="Pie de Página"):
+    """Modal para agregar pie de página"""
+    
+    footer_input = discord.ui.TextInput(
+        label="Texto del pie de página",
+        placeholder="Texto que aparece abajo...",
+        required=True,
+        max_length=2048
+    )
+    
+    def __init__(self, view: EmbedEditorView):
+        super().__init__()
+        self.view = view
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        self.view.footer_text = self.footer_input.value.strip()
+        await interaction.response.send_message("✅ Pie de página agregado", ephemeral=True)
+
+
+async def setup(bot):
+    await bot.add_cog(UtilityCog(bot))
